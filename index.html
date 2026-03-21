@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>GenSan Fare • Smart Transport Calculator</title>
+  <link rel="stylesheet" href="main.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Full-screen map container -->
+  <div id="map" role="application" aria-label="Interactive transport map"></div>
+
+  <!-- Floating header -->
+  <header class="floating-header">
+    <div class="logo">
+      <div class="logo-text">
+        <h1>Geo Gensan</h1>
+        <p>Don't get lost</p>
+      </div>
+    </div>
+  </header>
+
+  <!-- COMPLAINT MODAL -->
+  <div id="complaint-modal" class="modal-overlay" style="display:none;">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2>🚨 Report a Tricycle</h2>
+        <button class="modal-close" id="close-complaint">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="complaint-cooldown-notice" class="cooldown-notice" style="display:none;">
+          <span>⏳</span>
+          <p id="cooldown-text">You may submit another report in <strong id="cooldown-timer"></strong>.</p>
+        </div>
+        <div id="complaint-form-body">
+          <div class="form-group">
+            <label>Plate Number <span class="required">*</span></label>
+            <input type="text" id="complaint-plate" placeholder="e.g. AB-1234 (or attach photo below)" maxlength="20" autocomplete="off">
+          </div>
+
+          <div class="form-group">
+            <label>Plate Photo <span class="optional">(optional)</span></label>
+            <div class="image-drop-zone" id="image-drop-zone">
+              <input type="file" id="complaint-image-input" accept="image/*" style="display:none;">
+              <div class="drop-zone-idle" id="drop-zone-idle">
+                <span class="drop-icon">📷</span>
+                <span class="drop-text">Tap to take photo or browse files</span>
+                <span class="drop-sub">JPG, PNG, HEIC — max 5MB</span>
+              </div>
+              <div class="drop-zone-preview" id="drop-zone-preview" style="display:none;">
+                <img id="complaint-img-preview" src="" alt="preview">
+                <button class="drop-remove-btn" id="drop-remove-img" type="button">✕</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Report Type <span class="required">*</span></label>
+            <select id="complaint-type">
+              <option value="">— Select type —</option>
+              <option value="Overcharging">Overcharging</option>
+              <option value="Reckless Driving">Reckless Driving</option>
+              <option value="Refusal of Service">Refusal of Service</option>
+              <option value="Verbal Abuse">Verbal Abuse</option>
+              <option value="Unsafe Vehicle">Unsafe Vehicle</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Description <span class="required">*</span></label>
+            <textarea id="complaint-desc" placeholder="Describe what happened..." rows="4" maxlength="500"></textarea>
+            <span class="char-count"><span id="desc-count">0</span>/500</span>
+          </div>
+          <button class="btn-primary" id="submit-complaint">Submit Report</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mode switcher - floating tabs -->
+  <nav class="mode-switcher" role="tablist">
+    <button class="mode-btn active" data-mode="trike" role="tab" aria-selected="true">
+      <span class="mode-icon">🛺</span>
+      <span class="mode-label">Trike</span>
+    </button>
+    <button class="mode-btn" data-mode="busjeep" role="tab" aria-selected="false">
+      <span class="mode-icon">🚌</span>
+      <span class="mode-label">Bus/Jeep</span>
+    </button>
+    <button class="mode-btn" data-mode="info" role="tab" aria-selected="false">
+      <span class="mode-icon">ℹ️</span>
+      <span class="mode-label">Info</span>
+    </button>
+  </nav>
+
+  <!-- Bottom sheet / Sidebar (adaptive) -->
+  <aside class="control-panel" id="control-panel">
+    <!-- Drag handle for mobile -->
+    <div class="panel-handle">
+      <div class="handle-bar"></div>
+    </div>
+
+    <!-- TRIKE MODE -->
+    <div class="panel-view active" data-view="trike">
+      <div class="panel-header">
+        <h2 class="panel-title">Trike Fare Calculator</h2>
+      </div>
+
+      <div class="panel-content">
+        <!-- Quick actions -->
+        <div class="quick-actions">
+          <button class="action-card" id="use-location">
+            <span class="action-icon">📍</span>
+            <span class="action-text">My Location</span>
+          </button>
+          <button class="action-card" id="reset-trike">
+            <span class="action-icon">🔄</span>
+            <span class="action-text">Reset</span>
+          </button>
+        </div>
+
+        <!-- Discount selector -->
+        <div class="discount-selector">
+          <label class="discount-label">Passenger Type</label>
+          <div class="discount-options">
+            <button class="discount-btn active" data-discount="none">
+              <span class="discount-icon">👤</span>
+              <span class="discount-name">Regular</span>
+            </button>
+            <button class="discount-btn" data-discount="special">
+              <span class="discount-icon">💳</span>
+              <span class="discount-name">PWD / Senior / Student</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Location inputs -->
+        <div class="location-input-group">
+          <div class="input-wrapper">
+            <div class="input-icon start-icon">A</div>
+            <div class="input-content">
+              <input 
+                type="text" 
+                id="search-start" 
+                class="location-input"
+                placeholder="Starting point..."
+                autocomplete="off"
+              >
+              <span class="input-label" id="start-display">Tap map or search</span>
+            </div>
+          </div>
+
+          <div class="connection-line"></div>
+
+          <div class="input-wrapper">
+            <div class="input-icon end-icon">B</div>
+            <div class="input-content">
+              <input 
+                type="text" 
+                id="search-end" 
+                class="location-input"
+                placeholder="Destination..."
+                autocomplete="off"
+              >
+              <span class="input-label" id="end-display">Tap map or search</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trip summary -->
+        <div class="trip-summary" id="trip-summary">
+          <div class="summary-row">
+            <span class="summary-label">Distance</span>
+            <span class="summary-value" id="distance-display">—</span>
+          </div>
+          <div class="summary-divider"></div>
+          <div class="fare-display-main">
+            <div class="fare-top">
+              <span class="fare-label">Estimated Fare</span>
+              <span class="fare-amount" id="fare-display">₱—</span>
+            </div>
+            <div class="fare-breakdown" id="fare-breakdown" style="display: none;">
+              <div class="breakdown-row">
+                <span>Regular Fare:</span>
+                <span id="regular-fare">₱—</span>
+              </div>
+              <div class="breakdown-row discount-applied">
+                <span id="discount-label">Discount (20%):</span>
+                <span id="discount-amount">-₱—</span>
+              </div>
+            </div>
+          </div>
+          <div class="fare-formula" id="fare-formula">
+            ₱15 base (4km) + ₱1/km
+          </div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="instruction-card">
+          <p>💡 Tap any two points on the map to calculate fare</p>
+        </div>
+
+        <!-- Report a Tricycle -->
+        <button class="report-trike-btn" id="open-complaint">
+          <span class="report-trike-icon">🚨</span>
+          <div class="report-trike-text">
+            <strong>Report a Tricycle</strong>
+            <span>Overcharging, reckless driving, etc.</span>
+          </div>
+          <span class="report-trike-arrow">›</span>
+        </button>
+
+        <div class="warning-box">
+          <p><strong>⚠️ Route Advisory:</strong> Actual routes may differ due to traffic or driver preference. This may affect the final fare. Always confirm with your driver before paying.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- BUS/JEEP MODE -->
+    <div class="panel-view" data-view="busjeep">
+      <div class="panel-header">
+        <h2 class="panel-title">Bus & Jeep Routes</h2>
+      </div>
+
+      <div class="panel-content">
+        <button class="action-card bus-location-btn" id="use-location-bus">
+          <span class="action-icon">📍</span>
+          <span class="action-text">My Location</span>
+        </button>
+
+        <div class="route-grid">
+          <button class="route-card" data-route="uhaw">
+            <div class="route-badge green">🟢</div>
+            <div class="route-info">
+              <h3 class="route-name">Uhaw Route</h3>
+              <p class="route-stops">12 stops • Airport to Robinsons</p>
+            </div>
+            <div class="route-fare">₱30</div>
+          </button>
+
+          <button class="route-card" data-route="calumpang">
+            <div class="route-badge yellow">🟡</div>
+            <div class="route-info">
+              <h3 class="route-name">Calumpang Route</h3>
+              <p class="route-stops">8 stops • Lado to Lagao Market</p>
+            </div>
+            <div class="route-fare">₱30</div>
+          </button>
+
+          <button class="route-card" data-route="mabuhay">
+            <div class="route-badge blue">🔵</div>
+            <div class="route-info">
+              <h3 class="route-name">Mabuhay Route</h3>
+              <p class="route-stops">10 stops • Market to Mabuhay</p>
+            </div>
+            <div class="route-fare">₱30</div>
+          </button>
+        </div>
+
+        <div class="route-detail" id="route-detail" style="display: none;">
+          <div class="route-detail-header">
+            <h3 id="route-detail-name"></h3>
+            <button class="btn-text" id="clear-route">Clear</button>
+          </div>
+          <div class="stops-list" id="stops-list"></div>
+        </div>
+
+        <div class="info-box">
+          <strong>Minimum Fare: ₱30</strong> Bus & jeep fares start at ₱30. Fares may vary depending on distance traveled. Always confirm the fare with your driver before paying.
+        </div>
+
+        <div class="warning-box">
+          <strong>⚠️ Route Advisory:</strong> Drivers may take alternative routes due to traffic conditions, road closures, or detours. The displayed routes are typical paths but actual routes may vary.
+        </div>
+      </div>
+    </div>
+
+    <!-- INFO MODE -->
+    <div class="panel-view" data-view="info">
+      <div class="panel-header">
+        <h2 class="panel-title">About</h2>
+        <button class="dark-mode-toggle" id="dark-mode-toggle" aria-label="Toggle dark mode">
+          <span class="toggle-icon" id="dark-mode-label">Dark</span>
+        </button>
+      </div>
+
+      <div class="panel-content">
+        <div class="info-section">
+          <h3>What is this?</h3>
+          <p>GenSan Fare helps you plan trips and calculate transportation costs in General Santos City with real-time route mapping based on City Ordinance No. 08, Series of 2023.</p>
+        </div>
+
+        <div class="info-section">
+          <h3>Features</h3>
+          <div class="feature-grid">
+            <div class="feature-item">
+              <span class="feature-icon">🛺</span>
+              <div>
+                <strong>Trike Fares</strong>
+                <p>Distance-based pricing with discounts</p>
+              </div>
+            </div>
+            <div class="feature-item">
+              <span class="feature-icon">🚌</span>
+              <div>
+                <strong>Bus Routes</strong>
+                <p>View popular jeepney routes</p>
+              </div>
+            </div>
+            <div class="feature-item">
+              <span class="feature-icon">📍</span>
+              <div>
+                <strong>Live Location</strong>
+                <p>GPS-based routing</p>
+              </div>
+            </div>
+            <div class="feature-item">
+              <span class="feature-icon">💳</span>
+              <div>
+                <strong>Discount Calculator</strong>
+                <p>PWD, Senior, Student rates</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="info-section">
+          <h3>Special Discounts (20% off)</h3>
+          <div class="discount-info-box">
+            <ul>
+              <li><strong>PWD:</strong> Persons with Disability (with valid ID)</li>
+              <li><strong>Senior Citizens:</strong> 60 years old and above (with valid ID)</li>
+              <li><strong>Students:</strong> With valid school ID</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="info-section">
+          <h3>Official Fare Matrix</h3>
+          <p class="matrix-intro">The following are the official tricycle fare matrices for different clusters in General Santos City as per Ordinance No. 08, Series of 2023:</p>
+          
+          <div class="matrix-tabs">
+            <button class="matrix-tab active" data-cluster="white">White</button>
+            <button class="matrix-tab" data-cluster="apple">Apple-Green</button>
+            <button class="matrix-tab" data-cluster="red">Red</button>
+          </div>
+
+          <div class="matrix-container">
+            <!-- WHITE CLUSTER -->
+            <div class="matrix-view active" data-cluster="white">
+              <div class="matrix-header">White Cluster Routes</div>
+              <div class="matrix-note">Base fare: ₱15 (first 4km) + ₱1.00 per additional km</div>
+              <div class="matrix-table-wrapper">
+                <table class="matrix-table">
+                  <thead>
+                    <tr>
+                      <th class="route-col">Route</th>
+                      <th class="dist-col">Distance</th>
+                      <th class="fare-col">Regular</th>
+                      <th class="fare-col">Special*</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>CBD/Public Market to Purok Mabuhay Satellite Market</td>
+                      <td>4 km</td>
+                      <td>₱15</td>
+                      <td>₱12</td>
+                    </tr>
+                    <tr>
+                      <td>CBD/Public Market to Brgy. Labangal - San Isidro</td>
+                      <td>4 km</td>
+                      <td>₱15</td>
+                      <td>₱12</td>
+                    </tr>
+                    <tr>
+                      <td>KCC/Robinson Via Glifos St. to Leonandria</td>
+                      <td>4 km</td>
+                      <td>₱15</td>
+                      <td>₱12</td>
+                    </tr>
+                    <tr>
+                      <td>CBD/Public Market to Habitat Phase III</td>
+                      <td>8 km</td>
+                      <td>₱19</td>
+                      <td>₱15</td>
+                    </tr>
+                    <tr>
+                      <td>CBD/Public Market to VSM Heights</td>
+                      <td>8 km</td>
+                      <td>₱19</td>
+                      <td>₱15</td>
+                    </tr>
+                    <tr>
+                      <td>CBD/Public Market to Habitat Phase A</td>
+                      <td>9 km</td>
+                      <td>₱20</td>
+                      <td>₱16</td>
+                    </tr>
+                    <tr>
+                      <td>CBD/Public Market to Brgy. Ilud - Katangawan</td>
+                      <td>9 km</td>
+                      <td>₱20</td>
+                      <td>₱16</td>
+                    </tr>
+                    <tr>
+                      <td>CBD/Public Market to Brgy. Ilud - Kalabchay</td>
+                      <td>13 km</td>
+                      <td>₱24</td>
+                      <td>₱19</td>
+                    </tr>
+                    <tr>
+                      <td>CBD/Public Market to Brgy. Ilud - Conel</td>
+                      <td>15 km</td>
+                      <td>₱26</td>
+                      <td>₱21</td>
+                    </tr>
+                    <tr>
+                      <td>CBD/Public Market to Brgy. Ilud - Olympog</td>
+                      <td>16 km</td>
+                      <td>₱27</td>
+                      <td>₱22</td>
+                    </tr>
+                    <tr>
+                      <td>CBD/Public Market to Brgy. Ilud - Upper Labay</td>
+                      <td>25 km</td>
+                      <td>₱36</td>
+                      <td>₱29</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- APPLE-GREEN CLUSTER -->
+            <div class="matrix-view" data-cluster="apple">
+              <div class="matrix-header">Apple-Green Cluster Routes</div>
+              <div class="matrix-note">Base fare: ₱15 (first 4km) + ₱1.00 per additional km</div>
+              <div class="matrix-table-wrapper">
+                <table class="matrix-table">
+                  <thead>
+                    <tr>
+                      <th class="route-col">Route</th>
+                      <th class="dist-col">Distance</th>
+                      <th class="fare-col">Regular</th>
+                      <th class="fare-col">Special*</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>SM to Bulaong Terminal</td>
+                      <td>2.5 km</td>
+                      <td>₱15</td>
+                      <td>₱12</td>
+                    </tr>
+                    <tr>
+                      <td>KCC/Caloocan/SM to Bulaong Terminal</td>
+                      <td>3.14 km</td>
+                      <td>₱15</td>
+                      <td>₱12</td>
+                    </tr>
+                    <tr>
+                      <td>KCC/Robinson/SM to Liceo NDSL Junction</td>
+                      <td>3.42 km</td>
+                      <td>₱15</td>
+                      <td>₱12</td>
+                    </tr>
+                    <tr>
+                      <td>Plaza Heneral Santos to Lagao Gym</td>
+                      <td>3.45 km</td>
+                      <td>₱15</td>
+                      <td>₱12</td>
+                    </tr>
+                    <tr>
+                      <td>SM via Aparente St. to Mindanao Medical Center</td>
+                      <td>3.68 km</td>
+                      <td>₱15</td>
+                      <td>₱12</td>
+                    </tr>
+                    <tr>
+                      <td>SM to SM Store More</td>
+                      <td>3.7 km</td>
+                      <td>₱15</td>
+                      <td>₱12</td>
+                    </tr>
+                    <tr>
+                      <td>KCC/Robinson to Greenfield Residence</td>
+                      <td>3.83 km</td>
+                      <td>₱15</td>
+                      <td>₱12</td>
+                    </tr>
+                    <tr>
+                      <td>KCC/Robinson to Legaspi National High School</td>
+                      <td>3.91 km</td>
+                      <td>₱15</td>
+                      <td>₱12</td>
+                    </tr>
+                    <tr>
+                      <td>CBD/Public Market to Pioneer/Aparente Junction</td>
+                      <td>3.93 km</td>
+                      <td>₱15</td>
+                      <td>₱12</td>
+                    </tr>
+                    <tr>
+                      <td>CBD/Public Market to Salvasal St.</td>
+                      <td>3.97 km</td>
+                      <td>₱15</td>
+                      <td>₱12</td>
+                    </tr>
+                    <tr>
+                      <td>KCC/Robinson to Liceo City Heights</td>
+                      <td>4 km</td>
+                      <td>₱15</td>
+                      <td>₱12</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- RED CLUSTER -->
+            <div class="matrix-view" data-cluster="red">
+              <div class="matrix-header">Red Cluster Routes</div>
+              <div class="matrix-note">Base fare: ₱15 (first 4km) + ₱1.00 per additional km</div>
+              <div class="matrix-table-wrapper">
+                <table class="matrix-table">
+                  <thead>
+                    <tr>
+                      <th class="route-col">Route</th>
+                      <th class="dist-col">Distance</th>
+                      <th class="fare-col">Regular</th>
+                      <th class="fare-col">Special*</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>KCC via Public Market to Petronas Gas Station</td>
+                      <td>3.8 km</td>
+                      <td>₱15</td>
+                      <td>₱12</td>
+                    </tr>
+                    <tr>
+                      <td>Plaza Heneral Santos to King Solomon Institute</td>
+                      <td>3.95 km</td>
+                      <td>₱15</td>
+                      <td>₱12</td>
+                    </tr>
+                    <tr>
+                      <td>SM to Labangal Road Ceresita Fine Hotel</td>
+                      <td>3.96 km</td>
+                      <td>₱15</td>
+                      <td>₱12</td>
+                    </tr>
+                    <tr>
+                      <td>CBD/Public Market to Bloomfields Subdivision</td>
+                      <td>3.98 km</td>
+                      <td>₱15</td>
+                      <td>₱12</td>
+                    </tr>
+                    <tr>
+                      <td>CBD/Public Market to King Solomon Institute</td>
+                      <td>3.99 km</td>
+                      <td>₱15</td>
+                      <td>₱12</td>
+                    </tr>
+                    <tr>
+                      <td>CBD/Public Market to Brgy. Ilud - Calumpang</td>
+                      <td>6 km</td>
+                      <td>₱17</td>
+                      <td>₱14</td>
+                    </tr>
+                    <tr>
+                      <td>CBD/Public Market to Barrio Blaan</td>
+                      <td>8 km</td>
+                      <td>₱19</td>
+                      <td>₱15</td>
+                    </tr>
+                    <tr>
+                      <td>CBD/Public Market to Brgy. Ilud - Aponguol</td>
+                      <td>8 km</td>
+                      <td>₱19</td>
+                      <td>₱15</td>
+                    </tr>
+                    <tr>
+                      <td>CBD/Public Market to Brgy. Ilud - Tambler</td>
+                      <td>10 km</td>
+                      <td>₱21</td>
+                      <td>₱17</td>
+                    </tr>
+                    <tr>
+                      <td>CBD/Public Market to Lanton</td>
+                      <td>11 km</td>
+                      <td>₱22</td>
+                      <td>₱18</td>
+                    </tr>
+                    <tr>
+                      <td>CBD/Public Market to Ellesport Complex</td>
+                      <td>11 km</td>
+                      <td>₱22</td>
+                      <td>₱18</td>
+                    </tr>
+                    <tr>
+                      <td>CBD/Public Market to Brgy. Ilud - Fatima</td>
+                      <td>12 km</td>
+                      <td>₱23</td>
+                      <td>₱18</td>
+                    </tr>
+                    <tr>
+                      <td>CBD/Public Market to Brgy. Ilud - Sinawal</td>
+                      <td>13 km</td>
+                      <td>₱24</td>
+                      <td>₱19</td>
+                    </tr>
+                    <tr>
+                      <td>CBD/Public Market to Batomlong/Siguel</td>
+                      <td>18 km</td>
+                      <td>₱29</td>
+                      <td>₱23</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="matrix-footer">
+            <p><strong>*Special fare rates (20% discount) apply to:</strong></p>
+            <ul>
+              <li>PWD (Persons with Disability) with valid ID</li>
+              <li>Senior Citizens (60 years and above) with valid ID</li>
+              <li>Students with valid school ID</li>
+            </ul>
+            <p class="matrix-legal"><strong>Legal Notice:</strong> Republic Act No. 10909 prohibits short charging. Drivers who refuse passengers due to short distance routes are subject to penalties under the law.</p>
+          </div>
+        </div>
+
+        <div class="disclaimer">
+          <strong>Disclaimer:</strong> Fares are based on GenSan City Ordinance No. 08, Series of 2023. The driver may take different routes which may affect the final fare, so always confirm with your driver. This calculator provides estimates only.
+        </div>
+
+        <div class="branding">
+          <div class="branding-text">
+            <strong>BKORN</strong>
+            <span>STUDIOS</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Toast notification -->
+  <div id="toast" class="toast" role="alert" aria-live="polite"></div>
+
+  <!-- Loading overlay -->
+  <div id="loading" class="loading-overlay" style="display: none;">
+    <div class="spinner"></div>
+    <p>Calculating route...</p>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
+
+
+
