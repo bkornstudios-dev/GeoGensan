@@ -396,8 +396,37 @@ body.dark-mode .leaflet-control-zoom a {
   box-shadow: var(--shadow-md);
 }
 
+.logo-img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+@media (min-width: 640px) {
+  .logo-img {
+    width: 44px;
+    height: 44px;
+  }
+}
+
 .mode-icon {
   font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mode-img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  display: block;
+  /* Tint the icon white when button is active */
+}
+
+.mode-btn.active .mode-img {
+  filter: brightness(0) invert(1);
 }
 
 .mode-label {
