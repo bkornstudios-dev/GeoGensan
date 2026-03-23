@@ -1016,15 +1016,16 @@ function showRoute(routeKey) {
 
   state.busjeep.selectedRoute = routeKey;
 
+  const isWhite = route.color === '#ffffff';
+
   route.stops.forEach((coords, idx) => {
-    const isWhite = route.color === '#ffffff';
-    const glowColor = isWhite ? '#e2e8f0' : route.color;
+    const glowColor = isWhite ? '#cbd5e1' : route.color;
     const marker = L.circleMarker(coords, {
       radius: 10,
-      color: '#ffffff',
-      fillColor: glowColor,
+      color: isWhite ? '#000000' : '#ffffff',
+      fillColor: isWhite ? '#ffffff' : glowColor,
       fillOpacity: 1,
-      weight: 3,
+      weight: isWhite ? 2.5 : 3,
       className: 'bus-stop-marker',
       pane: 'busMarkerPane'
     }).addTo(state.map);
@@ -1044,16 +1045,30 @@ function showRoute(routeKey) {
   });
 
   const waypoints = route.stops.map(([lat, lng]) => L.latLng(lat, lng));
+
+  // Build line styles — white route gets a dark border layer for visibility
+  const lineStyles = isWhite
+    ? [
+        { color: '#000000', weight: 9,  opacity: 0.25 },
+        { color: '#000000', weight: 7,  opacity: 0.35 },
+        { color: '#ffffff', weight: 5,  opacity: 1    }
+      ]
+    : [
+        { color: route.color, weight: 18, opacity: 0.18 },
+        { color: route.color, weight: 11, opacity: 0.35 },
+        { color: route.color, weight: 5,  opacity: 1    }
+      ];
   
+  // Use a custom SVG renderer that draws into busRoutePane (z-index 420),
+  // so route lines always appear above the dark overlay (z-index 300).
+  const busRenderer = L.svg({ pane: 'busRoutePane' });
+
   state.busjeep.routeControl = L.Routing.control({
     waypoints,
     lineOptions: {
-      styles: [
-        { color: route.color === '#ffffff' ? '#e2e8f0' : route.color, weight: 18, opacity: 0.18 },
-        { color: route.color === '#ffffff' ? '#e2e8f0' : route.color, weight: 11, opacity: 0.35 },
-        { color: route.color === '#ffffff' ? '#f1f5f9' : route.color, weight: 5,  opacity: 1   }
-      ],
-      addWaypoints: false
+      styles: lineStyles,
+      addWaypoints: false,
+      renderer: busRenderer
     },
     router: L.Routing.osrmv1({
       serviceUrl: 'https://router.project-osrm.org/route/v1'
@@ -1064,28 +1079,6 @@ function showRoute(routeKey) {
     fitSelectedRoutes: true,
     show: false
   }).addTo(state.map);
-
-  // After route is drawn, move its SVG container into busRoutePane (z-index 420, above dark overlay at 300)
-  state.busjeep.routeControl.on('routesfound', () => {
-    const routePane = state.map.getPane('busRoutePane');
-    if (!routePane) return;
-    setTimeout(() => {
-      const overlayPane = state.map.getPanes().overlayPane;
-      if (!overlayPane) return;
-      // Move all SVG elements from overlayPane into busRoutePane
-      // (Leaflet renders route polylines as SVG inside overlayPane)
-      Array.from(overlayPane.children).forEach(child => {
-        if (child.tagName === 'svg' || child.tagName === 'SVG') {
-          child.style.position = 'absolute';
-          child.style.top = '0';
-          child.style.left = '0';
-          child.style.width = '100%';
-          child.style.height = '100%';
-          routePane.appendChild(child);
-        }
-      });
-    }, 80);
-  });
 
   // Zoom in on the route bounds
   const bounds = L.latLngBounds(waypoints);
