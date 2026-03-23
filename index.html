@@ -19,6 +19,7 @@
   <!-- Floating header -->
   <header class="floating-header">
     <div class="logo">
+      <img src="geogensan.png" alt="GeoGensan" class="logo-img">
       <div class="logo-text">
         <h1>Geo Gensan</h1>
         <p>Don't get lost</p>
@@ -86,15 +87,15 @@
   <!-- Mode switcher - floating tabs -->
   <nav class="mode-switcher" role="tablist">
     <button class="mode-btn active" data-mode="trike" role="tab" aria-selected="true">
-      <span class="mode-icon">🛺</span>
+      <span class="mode-icon"><img src="trike.png" alt="Trike" class="mode-img"></span>
       <span class="mode-label">Trike</span>
     </button>
     <button class="mode-btn" data-mode="busjeep" role="tab" aria-selected="false">
-      <span class="mode-icon">🚌</span>
+      <span class="mode-icon"><img src="bus.png" alt="Bus" class="mode-img"></span>
       <span class="mode-label">Bus/Jeep</span>
     </button>
     <button class="mode-btn" data-mode="info" role="tab" aria-selected="false">
-      <span class="mode-icon">ℹ️</span>
+      <span class="mode-icon"><img src="info.png" alt="Info" class="mode-img"></span>
       <span class="mode-label">Info</span>
     </button>
   </nav>
@@ -229,11 +230,6 @@
       </div>
 
       <div class="panel-content">
-        <button class="action-card bus-location-btn" id="use-location-bus">
-          <span class="action-icon">📍</span>
-          <span class="action-text">My Location</span>
-        </button>
-
         <div class="route-grid">
           <button class="route-card" data-route="uhaw">
             <div class="route-badge green">🟢</div>
@@ -254,7 +250,7 @@
           </button>
 
           <button class="route-card" data-route="mabuhay">
-            <div class="route-badge blue">🔵</div>
+            <div class="route-badge white">⚪</div>
             <div class="route-info">
               <h3 class="route-name">Mabuhay Route</h3>
               <p class="route-stops">10 stops • Market to Mabuhay</p>
@@ -276,7 +272,7 @@
         </div>
 
         <div class="warning-box">
-          <strong>⚠️ Route Advisory:</strong> Drivers may take alternative routes due to traffic conditions, road closures, or detours. The displayed routes are typical paths but actual routes may vary.
+          <strong>Route Advisory:</strong> Drivers may take alternative routes due to traffic conditions, road closures, or detours. The displayed routes are typical paths but actual routes may vary.
         </div>
       </div>
     </div>
@@ -300,28 +296,24 @@
           <h3>Features</h3>
           <div class="feature-grid">
             <div class="feature-item">
-              <span class="feature-icon">🛺</span>
               <div>
                 <strong>Trike Fares</strong>
                 <p>Distance-based pricing with discounts</p>
               </div>
             </div>
             <div class="feature-item">
-              <span class="feature-icon">🚌</span>
               <div>
                 <strong>Bus Routes</strong>
                 <p>View popular jeepney routes</p>
               </div>
             </div>
             <div class="feature-item">
-              <span class="feature-icon">📍</span>
               <div>
                 <strong>Live Location</strong>
                 <p>GPS-based routing</p>
               </div>
             </div>
             <div class="feature-item">
-              <span class="feature-icon">💳</span>
               <div>
                 <strong>Discount Calculator</strong>
                 <p>PWD, Senior, Student rates</p>
@@ -644,12 +636,6 @@
           <strong>Disclaimer:</strong> Fares are based on GenSan City Ordinance No. 08, Series of 2023. The driver may take different routes which may affect the final fare, so always confirm with your driver. This calculator provides estimates only.
         </div>
 
-        <div class="branding">
-          <div class="branding-text">
-            <strong>BKORN</strong>
-            <span>STUDIOS</span>
-          </div>
-        </div>
       </div>
     </div>
   </aside>
