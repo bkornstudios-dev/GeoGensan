@@ -1019,23 +1019,16 @@ function showRoute(routeKey) {
   const isWhite = route.color === '#ffffff';
 
   route.stops.forEach((coords, idx) => {
-    const glowColor = isWhite ? '#cbd5e1' : route.color;
     const marker = L.circleMarker(coords, {
       radius: 10,
-      color: isWhite ? '#000000' : '#ffffff',
-      fillColor: isWhite ? '#ffffff' : glowColor,
+      color: '#000000',
+      fillColor: isWhite ? '#ffffff' : route.color,
       fillOpacity: 1,
-      weight: isWhite ? 2.5 : 3,
+      weight: 2.5,
       className: 'bus-stop-marker',
       pane: 'busMarkerPane'
     }).addTo(state.map);
 
-    // Apply inline glow via SVG filter on the marker element after it's added
-    marker.on('add', () => {
-      const el = marker.getElement();
-      if (el) el.style.filter = `drop-shadow(0 0 6px ${glowColor}) drop-shadow(0 0 12px ${glowColor}80)`;
-    });
-    
     marker.bindTooltip(route.labels[idx], {
       permanent: false,
       direction: 'top'
@@ -1046,7 +1039,7 @@ function showRoute(routeKey) {
 
   const waypoints = route.stops.map(([lat, lng]) => L.latLng(lat, lng));
 
-  // Build line styles — white route gets a dark border layer for visibility
+  // Build line styles — all routes get a dark border layer for visibility
   const lineStyles = isWhite
     ? [
         { color: '#000000', weight: 9,  opacity: 0.25 },
@@ -1054,9 +1047,8 @@ function showRoute(routeKey) {
         { color: '#ffffff', weight: 5,  opacity: 1    }
       ]
     : [
-        { color: route.color, weight: 18, opacity: 0.18 },
-        { color: route.color, weight: 11, opacity: 0.35 },
-        { color: route.color, weight: 5,  opacity: 1    }
+        { color: '#000000', weight: 9,  opacity: 0.35 },
+        { color: route.color, weight: 6, opacity: 1   }
       ];
   
   // Use a custom SVG renderer that draws into busRoutePane (z-index 420),
@@ -1480,11 +1472,6 @@ function initEventListeners() {
     showToast('Route cleared');
   });
 
-  // Bus mode: My Location button
-  const useBusLocBtn = document.getElementById('use-location-bus');
-  if (useBusLocBtn) {
-    useBusLocBtn.addEventListener('click', useBusLocation);
-  }
 }
 
 function init() {
