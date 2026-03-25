@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Panel — Geo GenSan</title>
+  <title>Geo GenSan — Reports</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -190,8 +190,8 @@
 <div id="login-screen">
   <div class="login-card">
     <div class="login-logo" style="font-size:32px;font-weight:900;color:#2563eb;letter-spacing:-1px;">GG</div>
-    <div class="login-title">Admin Panel</div>
-    <div class="login-subtitle">Geo GenSan • Tricycle Reports</div>
+    <div class="login-title">Geo GenSan</div>
+    <div class="login-subtitle">Tricycle Reports Dashboard</div>
     <label class="login-label" for="login-input">Password</label>
     <input type="password" class="login-input" id="login-input" placeholder="••••••••" maxlength="20" autocomplete="off">
     <div class="login-error" id="login-error"></div>
@@ -203,7 +203,7 @@
 <div id="admin-screen">
   <div class="topbar">
     <div class="topbar-left">
-      <span class="topbar-title">Admin Panel</span>
+      <span class="topbar-title">Geo GenSan</span>
     </div>
     <div class="topbar-right">
       <button class="logout-btn" id="logout-btn">Logout</button>
@@ -336,7 +336,7 @@
     let filtered = filterType ? allReports.filter(r => r.type === filterType) : allReports;
 
     if (filtered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📭</div><p>${filterType ? 'No reports of this type.' : 'No reports yet.'}</p></div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📋</div><p>${filterType ? 'No reports of this type.' : 'No reports yet.'}</p></div></td></tr>`;
       return;
     }
 
