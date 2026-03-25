@@ -75,7 +75,7 @@ const ROUTES = {
       [6.15466, 125.16342]
     ],
     labels: [
-      "KCC Mall of Gensan", "SM Mall of Gensan", "Public Market", "Pioneer",
+      "KCC Mall of Gensan", "Gaisano Mall of Gensan", "SM Mall of Gensan", "Public Market", "Pioneer",
       "RD Plaza", "711 Malakas", "NLSA Road", "MGTC Terminal"
     ]
   }
