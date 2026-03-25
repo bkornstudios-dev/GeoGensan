@@ -70,13 +70,14 @@ const ROUTES = {
       [6.10745, 125.17857],
       [6.10721, 125.17180],
       [6.11263, 125.17029],
+      [6.11733, 125.17319],
       [6.12117, 125.17136],
       [6.15283, 125.16705],
       [6.15466, 125.16342]
     ],
     labels: [
       "KCC Mall of Gensan", "Gaisano Mall of Gensan", "SM Mall of Gensan", "Public Market", "Pioneer",
-      "RD Plaza", "711 Malakas", "NLSA Road", "MGTC Terminal"
+      "RD Plaza", "", "711 Malakas", "NLSA Road", "MGTC Terminal"
     ]
   }
 };
