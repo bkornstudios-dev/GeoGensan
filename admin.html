@@ -3,11 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Tab</title>
+  <title>Geo GenSan — Reports</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -71,16 +72,19 @@
 
     /* ── STATS SECTION ── */
     .stats-section { margin-bottom: 20px; }
-    .stats-header {
-      display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+    .stats-header { margin-bottom: 12px; }
+    .stats-top-row {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
     }
     .stats-total-card {
-      background: var(--surface); border-radius: var(--radius); padding: 16px 20px;
+      background: var(--surface); border-radius: var(--radius); padding: 14px 20px;
       box-shadow: var(--shadow); border: 1px solid var(--border);
-      display: flex; align-items: center; gap: 16px; flex-shrink: 0;
+      flex-shrink: 0; min-width: 140px;
     }
-    .stats-total-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; }
-    .stats-total-val { font-family: var(--mono); font-size: 28px; font-weight: 700; color: var(--text); line-height: 1; }
+    .stats-total-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 6px; }
+    .stats-total-val { font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--text); line-height: 1.2; }
+    .stats-recent   { font-size: 13px !important; color: var(--muted) !important; font-family: var(--font) !important; font-weight: 600 !important; }
+    .stats-top-type { font-size: 13px !important; color: var(--primary) !important; font-family: var(--font) !important; font-weight: 700 !important; }
     .toggle-breakdown-btn {
       background: var(--surface); border: 1.5px solid var(--border);
       color: var(--muted); font-family: var(--font); font-size: 12px; font-weight: 700;
@@ -329,13 +333,21 @@
     <!-- STATS SECTION -->
     <div class="stats-section">
       <div class="stats-header">
-        <div class="stats-total-card">
-          <div>
+        <div class="stats-top-row">
+          <div class="stats-total-card">
             <div class="stats-total-label">Total Reports</div>
             <div class="stats-total-val" id="stat-total">—</div>
           </div>
+          <div class="stats-total-card">
+            <div class="stats-total-label">Most Recent</div>
+            <div class="stats-total-val stats-recent" id="stat-recent">—</div>
+          </div>
+          <div class="stats-total-card">
+            <div class="stats-total-label">Top Violation</div>
+            <div class="stats-total-val stats-top-type" id="stat-top-type">—</div>
+          </div>
+          <button class="toggle-breakdown-btn" id="toggle-breakdown-btn">More</button>
         </div>
-        <button class="toggle-breakdown-btn" id="toggle-breakdown-btn">More</button>
       </div>
       <!-- Collapsible type breakdown -->
       <div class="breakdown-row" id="breakdown-row">
@@ -469,7 +481,9 @@ function showToast(msg, ms = 2600) {
 
 /* ── Firebase ─────────────────────────────────────────────────── */
 async function fbGetAll() {
-  const res  = await fetch(`${FIREBASE_DB_URL}/reports.json`);
+  // Fetch up to 500 most recent reports ordered by timestamp
+  const url = `${FIREBASE_DB_URL}/reports.json?orderBy="timestamp"&limitToLast=500`;
+  const res  = await fetch(url);
   if (!res.ok) throw new Error('read failed');
   const data = await res.json();
   if (!data) return [];
@@ -546,12 +560,29 @@ toggleBtn.addEventListener('click', () => {
 function updateStats() {
   document.getElementById('stat-total').textContent = allReports.length;
 
+  // Most recent report date
+  const sorted = [...allReports].sort((a,b) => (b.timestamp||0)-(a.timestamp||0));
+  if (sorted.length > 0) {
+    const latest = sorted[0];
+    const d = latest.timestamp ? new Date(latest.timestamp) : new Date(latest.date);
+    const dateStr = isNaN(d) ? (latest.date||'—') :
+      d.toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'});
+    document.getElementById('stat-recent').textContent = dateStr;
+  } else {
+    document.getElementById('stat-recent').textContent = '—';
+  }
+
+  // Most reported type
   const counts = {};
   allReports.forEach(r => { counts[r.type] = (counts[r.type] || 0) + 1; });
+  const topType = Object.entries(counts).sort((a,b) => b[1]-a[1])[0];
+  document.getElementById('stat-top-type').textContent = topType
+    ? `${topType[0]} (${topType[1]})`
+    : '—';
 
+  // Breakdown cards
   breakdownEl.innerHTML = '';
   const currentFilter = document.getElementById('filter-type').value;
-
   Object.entries(counts).sort((a,b) => b[1]-a[1]).forEach(([type, count]) => {
     const cls  = TYPE_STAT_CLS[type] || '';
     const card = document.createElement('div');
@@ -791,14 +822,14 @@ function renderTable(filtered) {
   tbody.querySelectorAll('.act-btn.save-pdf').forEach(btn =>
     btn.addEventListener('click', () => {
       const r = allReports.find(x => x._key === btn.dataset.key);
-      if (r) triggerReport(r, 'pdf');
+      if (r) downloadPDF(r);
     }));
 
   // Print
   tbody.querySelectorAll('.act-btn.print-r').forEach(btn =>
     btn.addEventListener('click', () => {
       const r = allReports.find(x => x._key === btn.dataset.key);
-      if (r) triggerReport(r, 'print');
+      if (r) printReport(r);
     }));
 
   // Checkboxes
@@ -889,9 +920,136 @@ async function deleteMass() {
 }
 
 /* ================================================================
-   REPORT DOCUMENT (Print or Save PDF)
+   PDF DOWNLOAD  (jsPDF)
 ================================================================ */
-function buildReportHTML(r) {
+async function downloadPDF(r) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pageW = 210, margin = 18, contentW = pageW - margin * 2;
+  let y = 0;
+  const blue=[37,99,235],dark=[17,24,39],muted=[107,114,128],light=[249,250,251],border=[229,231,235];
+
+  // Header bar
+  doc.setFillColor(...blue); doc.rect(0,0,pageW,18,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(255,255,255);
+  doc.text('Geo GenSan', margin, 11.5);
+  doc.setFont('helvetica','normal'); doc.setFontSize(8);
+  doc.text('Tricycle Report System  ·  General Santos City', margin, 15.5);
+  const printedDate = new Date().toLocaleDateString('en-PH',{year:'numeric',month:'long',day:'numeric'});
+  doc.setFontSize(7.5); doc.setTextColor(220,230,255);
+  doc.text('Report ID: '+r._key, pageW-margin, 11, {align:'right'});
+  doc.text('Date: '+printedDate, pageW-margin, 15.5, {align:'right'});
+  y = 26;
+
+  // Title
+  doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(...dark);
+  doc.text('Tricycle Incident Report', margin, y); y+=5;
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...muted);
+  doc.text('Official report filed through the Geo GenSan public reporting system.', margin, y); y+=8;
+
+  // Divider
+  doc.setDrawColor(...border); doc.setLineWidth(0.4); doc.line(margin,y,pageW-margin,y); y+=7;
+
+  // Field helper
+  function drawField(label, value, x, fy, w) {
+    doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(...muted);
+    doc.text(label.toUpperCase(), x, fy);
+    doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(...dark);
+    const lines = doc.splitTextToSize(value, w);
+    doc.text(lines, x, fy+4.5);
+    return fy+4.5+lines.length*5;
+  }
+  const col1x=margin, col2x=margin+contentW/2+4, colW=contentW/2-6;
+  drawField('Plate Number', r.plate||'—', col1x, y, colW);
+  drawField('Date & Time Filed', r.date||'—', col2x, y, colW);
+  y+=14;
+  drawField('Violation Type', r.type||'—', col1x, y, colW);
+  y+=14;
+  doc.setDrawColor(...border); doc.line(margin,y,pageW-margin,y); y+=7;
+
+  // Description box
+  doc.setFillColor(...light);
+  const desc = r.description||'No description provided.';
+  const descLines = doc.splitTextToSize(desc, contentW-12);
+  const descBoxH = descLines.length*5.5+12;
+  doc.roundedRect(margin, y, contentW, descBoxH, 2, 2, 'F');
+  doc.setFillColor(...blue); doc.rect(margin, y, 3, descBoxH, 'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(...muted);
+  doc.text('INCIDENT DESCRIPTION', margin+7, y+5.5);
+  doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(...dark);
+  doc.text(descLines, margin+7, y+11);
+  y+=descBoxH+8;
+
+  // Photo
+  if (r.imageUrl) {
+    try {
+      const imgData = await loadImageAsDataURL(r.imageUrl);
+      doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(...muted);
+      doc.text('ATTACHED PHOTO  (Plate / Vehicle Evidence)', margin, y); y+=4;
+      const dims = fitImageDims(imgData, 90, 60);
+      doc.addImage(imgData, 'JPEG', margin, y, dims.w, dims.h);
+      doc.setDrawColor(...border); doc.setLineWidth(0.3); doc.rect(margin,y,dims.w,dims.h);
+      y+=dims.h+8;
+    } catch(e) {}
+  }
+
+  // Disclaimer
+  doc.setFillColor(254,252,232); doc.setDrawColor(253,230,138); doc.setLineWidth(0.4);
+  const discText = doc.splitTextToSize('This is an official incident report filed by a member of the public through the Geo GenSan system. The information above is submitted as-is and is pending verification by the appropriate authority.', contentW-8);
+  const discH = discText.length*4.8+8;
+  doc.roundedRect(margin,y,contentW,discH,2,2,'FD');
+  doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(146,64,14);
+  doc.text(discText, margin+4, y+5.5); y+=discH+10;
+
+  // Signature lines
+  const sigW=(contentW-14)/2;
+  doc.setDrawColor(...border); doc.setLineWidth(0.5);
+  doc.line(margin,y+12,margin+sigW,y+12);
+  doc.line(margin+sigW+14,y+12,margin+contentW,y+12);
+  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...muted);
+  doc.text('Received by / Verified by', margin, y+16);
+  doc.text('Authorized Signature & Date', margin+sigW+14, y+16);
+
+  // Footer
+  doc.setDrawColor(...border); doc.line(margin,284,pageW-margin,284);
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...muted);
+  doc.text('Geo GenSan — General Santos City Tricycle Monitoring System', margin, 288);
+  doc.text('CONFIDENTIAL · For official use only', pageW-margin, 288, {align:'right'});
+
+  const safePlate = (r.plate||'report').replace(/[^a-zA-Z0-9-]/g,'_');
+  doc.save('GeoGenSan_Report_'+safePlate+'.pdf');
+}
+
+function loadImageAsDataURL(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image(); img.crossOrigin='anonymous';
+    img.onload = () => {
+      const c=document.createElement('canvas');
+      c.width=img.naturalWidth; c.height=img.naturalHeight;
+      c.getContext('2d').drawImage(img,0,0);
+      resolve(c.toDataURL('image/jpeg',0.85));
+    };
+    img.onerror=reject; img.src=url;
+  });
+}
+function fitImageDims(dataUrl, maxW, maxH) {
+  const img=new Image(); img.src=dataUrl;
+  const w=img.width||maxW, h=img.height||maxH;
+  const r=Math.min(maxW/w, maxH/h);
+  return {w:w*r, h:h*r};
+}
+
+/* ================================================================
+   PRINT  (browser print dialog)
+================================================================ */
+function printReport(r) {
+  const pa=document.getElementById('print-area');
+  pa.innerHTML=buildPrintHTML(r);
+  pa.style.display='block';
+  setTimeout(()=>{ window.print(); setTimeout(()=>{pa.style.display='none';},900); },280);
+}
+
+function buildPrintHTML(r) {
   return `
     <style>
       @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700;900&display=swap');
@@ -914,7 +1072,6 @@ function buildReportHTML(r) {
       .desc-txt{font-size:14px;line-height:1.65;color:#374151;}
       .img-box{margin-bottom:22px;}
       .img-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#6b7280;margin-bottom:8px;}
-      .img-lbl em{font-weight:400;color:#9ca3af;font-style:normal;}
       .report-img{max-width:340px;max-height:260px;object-fit:contain;border-radius:10px;border:1.5px solid #e5e7eb;display:block;}
       .disc{background:#fefce8;border:1px solid #fde68a;border-radius:7px;padding:11px 14px;font-size:12px;color:#92400e;margin-bottom:22px;line-height:1.6;}
       .sig{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:32px;}
@@ -924,68 +1081,37 @@ function buildReportHTML(r) {
     </style>
     <div class="wrap">
       <div class="hdr">
-        <div>
-          <div class="hdr-logo">Geo GenSan</div>
-          <div class="hdr-sub">Tricycle Report System &middot; General Santos City</div>
-        </div>
+        <div><div class="hdr-logo">Geo GenSan</div><div class="hdr-sub">Tricycle Report System &middot; General Santos City</div></div>
         <div class="hdr-ref">
           <div>Report ID: <strong>${esc(r._key)}</strong></div>
           <div>Date: <strong>${new Date().toLocaleDateString('en-PH',{year:'numeric',month:'long',day:'numeric'})}</strong></div>
         </div>
       </div>
-
       <div class="doc-title">Tricycle Incident Report</div>
       <div class="doc-sub">Official report filed through the Geo GenSan public reporting system.</div>
-
       <div class="grid">
         <div class="field"><label>Plate Number</label><span>${esc(r.plate||'—')}</span></div>
         <div class="field"><label>Date &amp; Time Filed</label><span>${esc(r.date||'—')}</span></div>
         <div class="field"><label>Violation Type</label><span class="badge">${esc(r.type||'—')}</span></div>
       </div>
-
       <div class="desc-box">
         <div class="desc-lbl">Incident Description</div>
         <div class="desc-txt">${esc(r.description||'No description provided.')}</div>
       </div>
-
-      ${r.imageUrl ? `
-      <div class="img-box">
-        <div class="img-lbl">Attached Photo <em>(Plate / Vehicle Evidence)</em></div>
-        <img class="report-img" src="${esc(r.imageUrl)}" alt="Evidence photo">
-      </div>` : ''}
-
-      <div class="disc">
-        This is an official incident report filed by a member of the public through the Geo GenSan system.
-        The information above is submitted as-is and is pending verification by the appropriate authority.
-      </div>
-
+      ${r.imageUrl ? \`<div class="img-box"><div class="img-lbl">Attached Photo (Plate / Vehicle Evidence)</div><img class="report-img" src="${esc(r.imageUrl)}" alt="Evidence photo"></div>\` : ''}
+      <div class="disc">This is an official incident report filed by a member of the public through the Geo GenSan system. The information above is submitted as-is and is pending verification by the appropriate authority.</div>
       <div class="sig">
         <div class="sig-box"><div class="sig-lbl">Received by / Verified by</div></div>
         <div class="sig-box"><div class="sig-lbl">Authorized Signature &amp; Date</div></div>
       </div>
-
       <div class="ftr">
         <span>Geo GenSan &mdash; General Santos City Tricycle Monitoring System</span>
         <span>CONFIDENTIAL &middot; For official use only</span>
       </div>
-    </div>`;
+    </div>\`;
 }
 
-function triggerReport(r, mode) {
-  /* mode: 'print' = opens print dialog
-           'pdf'   = uses print dialog with Save as PDF prompt via data-uri */
-  const pa = document.getElementById('print-area');
-  pa.innerHTML = buildReportHTML(r);
-  pa.style.display = 'block';
 
-  setTimeout(() => {
-    window.print();
-    setTimeout(() => { pa.style.display = 'none'; }, 1000);
-  }, 320);
-  // Note: both 'print' and 'pdf' use window.print() — the browser's dialog
-  // lets the user choose "Save as PDF" as a printer destination for the PDF path.
-  // They are separated as distinct actions on the UI so the intent is clear to the user.
-}
 
 /* ================================================================
    EXCEL EXPORT
