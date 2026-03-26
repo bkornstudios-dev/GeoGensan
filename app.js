@@ -240,6 +240,8 @@ const GENSAN_PLACES = [
   { name: 'Dadiangas South Central Elementary School', lat: 6.11035, lng: 125.17582, tags: ['School'] },
   { name: 'Dadiangas West Central Elementary School', lat: 6.10963, lng: 125.16911, tags: ['School'] },
   { name: 'Notre Dame Dadiangas University, Lagao Gensan', lat: 6.12437, lng: 125.19643, tags: ['University', 'NDDU'] },
+  { name: 'Labangal Elementary School', lat: 6.10163, lng: 125.15779, tags: ['School'] },
+  { name: 'Saavedra Saway Central Elementary School', lat: 6.10276, lng: 125.15781, tags: ['School'] },
   // Transport / Terminals
   { name: 'Bulaong Terminal', lat: 6.11335, lng: 125.16237, tags: ['Bus', 'Van'] },
   { name: 'Husky Terminal', lat: 6.11326, lng: 125.16428, tags: ['Bus', 'Transport', 'Delivery'] },
@@ -265,7 +267,7 @@ const GENSAN_PLACES = [
   { name: 'SM Savemore Market,  Nuñez ', lat: 6.13831, lng: 125.17002, tags: ['Market'] },
   { name: 'Lagao Public Market', lat: 6.12732, lng: 125.19660, tags: ['Market'] },
   { name: 'SM Savemore Market, Calumpang', lat: 6.07740, lng: 125.14651, tags: ['Market'] },
-  // Parks & Landmarks
+  // Parks, Sports & Landmarks
   { name: 'Carlos P. Garcia Freedom Park', lat: 6.11538, lng: 125.17177, tags: ['Park', 'Plaza'] },
   { name: 'Plaza Heneral Santos', lat: 6.11214, lng: 125.17179, tags: ['Park', 'Plaza'] },
   { name: 'Queen Tuna Park', lat: 6.10678, lng: 125.17574, tags: ['Park', 'Beach'] },
@@ -273,6 +275,13 @@ const GENSAN_PLACES = [
   { name: 'Japanese abandoned World War 2 Bunker', lat: 6.14836, lng: 125.15902, tags: ['Landmark', 'Historical'] },
   { name: 'Pacman Mansion', lat: 6.13345, lng: 125.18503, tags: ['Landmark'] },
   { name: 'Lagao Gym,', lat: 6.13178, lng: 125.18373, tags: ['Gymnasium', 'landmark'] },
+  { name: 'Brigada Golf range', lat: 6.15434, lng: 125.14782, tags: ['Golf', 'Sports'] },
+  { name: 'Tuna Smashers', lat: 6.13337, lng: 125.17130, tags: ['Badminton', 'Sports'] },
+  { name: 'Matchpoint', lat: 6.13451, lng: 125.16324, tags: ['Badminton', 'Volleyball', 'Sports'] },
+  { name: 'Amandare Cove', lat: 6.12274, lng: 125.15678, tags: ['Pool'] },
+  { name: 'Oval Plaza Gym', lat: 6.11468, lng: 125.17117, tags: ['Basketball Court', 'gymnasium'] },
+  { name: 'PacMan Wildcard Gym', lat: 6.11494, lng: 125.18192, tags: ['Gym'] },
+  
   // Hotels
   { name: 'Green Leaf Hotel', lat: 6.11470, lng: 125.18220, tags: ['Hotel', 'Pool', 'Restaurant', 'Venue'] },
   { name: 'Grand Imperial Hotel', lat: 6.11970, lng: 125.18958, tags: ['Hotel', 'Pool', 'Casino', 'Venue'] },
@@ -295,6 +304,8 @@ const GENSAN_PLACES = [
   { name: 'Jovinaj Travellers Inn', lat: 6.11132, lng: 125.18577, tags: ['Hotel', 'Inn'] },
   { name: 'Matutum Hotel & Restaurant', lat: 6.10709, lng: 125.17347, tags: ['Hotel', 'Restaurant'] },
   { name: 'Roadhaus hotel', lat: 6.12249, lng: 125.17192, tags: ['Hotel'] },
+  { name: 'Venue 88', lat: 6.13397, lng: 125.16035, tags: ['Pool', 'Suites'] },
+  { name: 'Emjake Aquawave Resort', lat: 6.14353, lng: 125.19596, tags: ['Pool', 'Suites'] },
   // Restaurant
   { name: 'McDonalds, Digos-Makar Road', lat: 6.11912, lng: 125.17981, tags: ['restaurant', 'fastfood'] },
   { name: 'Chowking, Digos-Makar Road', lat: 6.11909, lng: 125.17925, tags: ['restaurant', 'fastfood'] },
@@ -310,6 +321,37 @@ const GENSAN_PLACES = [
   { name: 'Ponti Cafe, Digos-Makar Road', lat: 6.11910, lng: 125.18422, tags: ['restaurant', 'cafe'] },
   { name: 'Burger King, Digos-Makar Road', lat: 6.11906, lng: 125.18049, tags: ['restaurant', 'fastfood'] },
   { name: 'Gaisano Supermarket, Digos-Makar Road', lat: 6.11765, lng: 125.18393, tags: ['market', 'supermarket'] },
+  { name: 'J8th Hobby Shop', lat: 6.11487, lng: 125.18099, tags: ['Anime', 'Figurines', 'Cards', 'Cafe'] },
+  { name: 'The Coffee Bar', lat: 6.11874, lng: 125.18451, tags: ['Restaurant', 'Cafe'] },
+  // Neighborhoods
+  { name: 'Bloomfields, Dadiangas North', lat: 6.11843, lng: 125.15354, tags: ['Homes'] },
+  { name: 'Las Villas, City Heights', lat: 6.12984, lng: 125.16021, tags: [] },
+  { name: 'Agan Grandville', lat: 6.12734, lng: 125.17880, tags: [] },
+  { name: 'Countryside Homes', lat: 6.12523, lng: 125.18140, tags: [] },
+  { name: 'Queenies Love Village', lat: 6.12049, lng: 125.17247, tags: [] },
+  { name: 'Colinas Verdes', lat: 6.11490, lng: 125.19135, tags: [] },
+  { name: 'Gensanville 1', lat: 6.10648, lng: 125.20386, tags: [] },
+  { name: 'Fishermens Village', lat: 6.10633, lng: 125.18511, tags: [] },
+  { name: 'Malesido Homes 3B', lat: 6.13913, lng: 125.15406, tags: [] },
+  { name: 'Isabella Homes', lat: 6.14059, lng: 125.15214, tags: [] },
+  { name: 'Malesido Homes 3A', lat: 6.14149, lng: 125.15403, tags: [] },
+  { name: 'Agan Homes 3', lat: 6.14245, lng: 125.16190, tags: [] },
+  { name: 'Agan Homes 2', lat: 6.14080, lng: 125.16211, tags: [] },
+  { name: 'Agan Homes 1', lat: 6.13961, lng: 125.16193, tags: [] },
+  { name: 'VS Homes', lat: 6.14174, lng: 125.16679, tags: [] },
+  { name: 'Malesido Homes 2', lat: 6.14552, lng: 125.16484, tags: [] },
+  { name: 'Malesido Homes 1', lat: 6.14672, lng: 125.16512, tags: [] },
+  { name: 'VSM Heights 2', lat: 6.15312, lng: 125.16318, tags: [] },
+  { name: 'Crest Shelter Subdivision', lat: 6.15295, lng: 125.16131, tags: [] },
+  { name: 'VSM Heights Phase 1', lat: 6.15677, lng: 125.16511, tags: [] },
+  { name: 'Habitat Phase B', lat: 6.16245, lng: 125.16142, tags: [] },
+  { name: 'Agan North', lat: 6.15259, lng: 125.17421, tags: [] },
+  { name: 'Lessandra Homes', lat: 6.14608, lng: 125.18869, tags: [] },
+  { name: 'Camella Homes', lat: 6.14260, lng: 125.17993, tags: [] },
+  { name: 'Camella Cerritos', lat: 6.14429, lng: 125.18933, tags: [] },
+  { name: 'Bria Homes', lat: 6.15314, lng: 125.18770, tags: [] },
+  { name: 'VSM Premier Estates', lat: 6.16258, lng: 125.19258, tags: [] },
+  { name: 'La Cassandra Subdivision', lat: 6.14048, lng: 125.12893, tags: [] },
 ];
 
 // ─── SEARCH HISTORY ────────────────────────────────────────────────────────────
