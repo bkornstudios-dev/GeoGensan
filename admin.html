@@ -309,6 +309,7 @@
 </head>
 <body>
 
+<!-- ── LOGIN ── -->
 <div id="login-screen">
   <div class="login-card">
     <div class="login-logo">GG</div>
@@ -321,6 +322,7 @@
   </div>
 </div>
 
+<!-- ── ADMIN SCREEN ── -->
 <div id="admin-screen">
   <div class="topbar">
     <button class="logout-btn" id="logout-btn">Logout</button>
@@ -328,6 +330,7 @@
 
   <div class="container">
 
+    <!-- STATS SECTION -->
     <div class="stats-section">
       <div class="stats-header">
         <div class="stats-top-row">
@@ -346,14 +349,19 @@
           <button class="toggle-breakdown-btn" id="toggle-breakdown-btn">Show Breakdown</button>
         </div>
       </div>
+      <!-- Collapsible type breakdown -->
       <div class="breakdown-row" id="breakdown-row">
-        </div>
+        <!-- injected by JS -->
+      </div>
     </div>
 
+    <!-- TABLE CARD -->
     <div class="table-card">
 
+      <!-- Toolbar -->
       <div class="table-toolbar">
 
+        <!-- Row 1: title + export buttons -->
         <div class="toolbar-row">
           <span class="toolbar-title">Tricycle Reports</span>
           <div class="toolbar-controls">
@@ -361,13 +369,16 @@
           </div>
         </div>
 
+        <!-- Row 2: search + type filter + date filter -->
         <div class="toolbar-row">
           <div class="toolbar-controls">
+            <!-- Plate search -->
             <div class="search-wrap">
               <span class="search-prefix">Plate</span>
               <input type="text" class="search-input" id="search-plate" placeholder="e.g. AB-1234" autocomplete="off" spellcheck="false">
             </div>
 
+            <!-- Type filter -->
             <select class="filter-select" id="filter-type">
               <option value="">All Types</option>
               <option value="Overcharging">Overcharging</option>
@@ -378,6 +389,7 @@
               <option value="Other">Other</option>
             </select>
 
+            <!-- Calendar date filter -->
             <div class="date-filter-group">
               <label for="date-granularity">View by</label>
               <select class="filter-select" id="date-granularity">
@@ -387,6 +399,7 @@
                 <option value="week">Week</option>
                 <option value="day">Day</option>
               </select>
+              <!-- Dynamic date picker rendered by JS -->
               <div id="date-picker-wrap"></div>
               <button class="btn-clear-date" id="btn-clear-date" style="display:none;">Clear</button>
             </div>
@@ -395,12 +408,14 @@
 
       </div>
 
+      <!-- Selection banner -->
       <div class="sel-banner" id="sel-banner">
         <span class="sel-banner-count" id="sel-banner-count">0 selected</span>
         <button class="sel-banner-desel" id="btn-deselect-all">Deselect All</button>
         <button class="sel-banner-del"   id="btn-mass-delete">Delete Selected</button>
       </div>
 
+      <!-- Table -->
       <div class="table-wrapper">
         <table>
           <thead>
@@ -424,11 +439,13 @@
   </div>
 </div>
 
+<!-- Lightbox -->
 <div class="lightbox" id="lightbox">
   <button class="lb-close" id="lb-close">&#x2715;</button>
   <img id="lb-img" src="" alt="Report photo">
 </div>
 
+<!-- Confirm dialog -->
 <div class="confirm-ov" id="confirm-ov">
   <div class="confirm-box">
     <div class="confirm-ttl" id="confirm-ttl">Delete?</div>
@@ -440,6 +457,7 @@
   </div>
 </div>
 
+<!-- Print/PDF area -->
 <div id="print-area"></div>
 
 <div class="toast" id="toast"></div>
@@ -463,8 +481,8 @@ function showToast(msg, ms = 2600) {
 
 /* ── Firebase ─────────────────────────────────────────────────── */
 async function fbGetAll() {
-  // Fetch up to 500 most recent reports ordered by timestamp
-  const url = `${FIREBASE_DB_URL}/reports.json?orderBy="timestamp"&limitToLast=500`;
+  // Fetch all reports (sorted client-side)
+  const url = `${FIREBASE_DB_URL}/reports.json`;
   const res  = await fetch(url);
   if (!res.ok) throw new Error('read failed');
   const data = await res.json();
@@ -658,11 +676,9 @@ function renderDatePicker() {
     const inp = document.createElement('input');
     inp.type = 'date';
     inp.className = 'date-input filter-select';
-    // Adjust for local timezone offset to avoid yesterday's date
-    const tzOffset = now.getTimezoneOffset() * 60000;
-    const localDateStr = new Date(now.getTime() - tzOffset).toISOString().slice(0,10);
-    inp.value = dateFilter.day || localDateStr;
-    if (!dateFilter.day) dateFilter.day = localDateStr;
+    const todayStr = now.toISOString().slice(0,10);
+    inp.value = dateFilter.day || todayStr;
+    if (!dateFilter.day) dateFilter.day = todayStr;
     inp.addEventListener('change', () => { dateFilter.day = inp.value; applyAndRender(); });
     wrap.appendChild(inp);
   }
@@ -737,16 +753,15 @@ function getFiltered() {
 
   let list = [...allReports];
   if (ft)     list = list.filter(r => r.type === ft);
-  if (search) list = list.filter(r => String(r.plate||'').toLowerCase().includes(search));
+  if (search) list = list.filter(r => (r.plate||'').toLowerCase().includes(search));
   list = list.filter(r => matchesDateFilter(r));
 
   list.sort((a, b) => {
     if (sortCol === 'plate') {
-      const diff = String(a.plate||'').toLowerCase().localeCompare(String(b.plate||'').toLowerCase());
+      const diff = (a.plate||'').toLowerCase().localeCompare((b.plate||'').toLowerCase());
       return sortDir === 'asc' ? diff : -diff;
     }
-    const ta = a.timestamp || (a.date ? new Date(a.date).getTime() : 0);
-    const tb = b.timestamp || (b.date ? new Date(b.date).getTime() : 0);
+    const ta = a.timestamp || 0, tb = b.timestamp || 0;
     return sortDir === 'asc' ? ta - tb : tb - ta;
   });
 
@@ -971,7 +986,7 @@ async function downloadPDF(r) {
       const imgData = await loadImageAsDataURL(r.imageUrl);
       doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(...muted);
       doc.text('ATTACHED PHOTO  (Plate / Vehicle Evidence)', margin, y); y+=4;
-      const dims = fitImageDims(imgData, 90, 60);
+      const dims = await fitImageDims(imgData, 90, 60);
       doc.addImage(imgData, 'JPEG', margin, y, dims.w, dims.h);
       doc.setDrawColor(...border); doc.setLineWidth(0.3); doc.rect(margin,y,dims.w,dims.h);
       y+=dims.h+8;
@@ -1001,7 +1016,7 @@ async function downloadPDF(r) {
   doc.text('Geo GenSan — General Santos City Tricycle Monitoring System', margin, 288);
   doc.text('CONFIDENTIAL · For official use only', pageW-margin, 288, {align:'right'});
 
-  const safePlate = String(r.plate||'report').replace(/[^a-zA-Z0-9-]/g,'_');
+  const safePlate = (r.plate||'report').replace(/[^a-zA-Z0-9-]/g,'_');
   doc.save('GeoGenSan_Report_'+safePlate+'.pdf');
 }
 
@@ -1018,10 +1033,17 @@ function loadImageAsDataURL(url) {
   });
 }
 function fitImageDims(dataUrl, maxW, maxH) {
-  const img=new Image(); img.src=dataUrl;
-  const w=img.width||maxW, h=img.height||maxH;
-  const r=Math.min(maxW/w, maxH/h);
-  return {w:w*r, h:h*r};
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const w = img.naturalWidth  || maxW;
+      const h = img.naturalHeight || maxH;
+      const r = Math.min(maxW / w, maxH / h);
+      resolve({ w: w * r, h: h * r });
+    };
+    img.onerror = () => resolve({ w: maxW, h: maxH });
+    img.src = dataUrl;
+  });
 }
 
 /* ================================================================
@@ -1030,11 +1052,8 @@ function fitImageDims(dataUrl, maxW, maxH) {
 function printReport(r) {
   const pa=document.getElementById('print-area');
   pa.innerHTML=buildPrintHTML(r);
-  
-  setTimeout(() => { 
-    window.print(); 
-    setTimeout(() => { pa.innerHTML = ''; }, 900); 
-  }, 280);
+  pa.style.display='block';
+  setTimeout(()=>{ window.print(); setTimeout(()=>{pa.style.display='none';},900); },280);
 }
 
 function buildPrintHTML(r) {
@@ -1086,7 +1105,7 @@ function buildPrintHTML(r) {
         <div class="desc-lbl">Incident Description</div>
         <div class="desc-txt">${esc(r.description||'No description provided.')}</div>
       </div>
-      ${r.imageUrl ? `<div class="img-box"><div class="img-lbl">Attached Photo (Plate / Vehicle Evidence)</div><img class="report-img" src="${esc(r.imageUrl)}" alt="Evidence photo"></div>` : ''}
+      ${r.imageUrl ? '<div class="img-box"><div class="img-lbl">Attached Photo (Plate / Vehicle Evidence)</div><img class="report-img" src="' + esc(r.imageUrl) + '" alt="Evidence photo"></div>' : ''}
       <div class="disc">This is an official incident report filed by a member of the public through the Geo GenSan system. The information above is submitted as-is and is pending verification by the appropriate authority.</div>
       <div class="sig">
         <div class="sig-box"><div class="sig-lbl">Received by / Verified by</div></div>
@@ -1105,10 +1124,9 @@ function buildPrintHTML(r) {
    EXCEL EXPORT
 ================================================================ */
 document.getElementById('btn-excel').addEventListener('click', () => {
-  const filteredData = getFiltered();
-  if (!filteredData.length) { showToast('No reports to export'); return; }
+  if (!allReports.length) { showToast('No reports to export'); return; }
 
-  const rows = filteredData.map((r, i) => ({
+  const rows = allReports.map((r, i) => ({
     '#':            i + 1,
     'Plate No.':    r.plate       || '—',
     'Date & Time':  r.date        || '—',
