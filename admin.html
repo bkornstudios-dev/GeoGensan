@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -30,7 +31,7 @@
       width: 100%; max-width: 380px;
       box-shadow: 0 24px 64px rgba(0,0,0,0.3); text-align: center;
     }
-    .login-logo { font-size: 44px; margin-bottom: 8px; }
+    .login-logo { font-size: 32px; font-weight: 900; color: #2563eb; letter-spacing: -1px; margin-bottom: 8px; }
     .login-title { font-size: 22px; font-weight: 900; color: var(--text); margin-bottom: 4px; }
     .login-subtitle { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
     .login-label { display: block; text-align: left; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 7px; }
@@ -62,10 +63,8 @@
     .topbar-left { display: flex; align-items: center; gap: 12px; }
     .topbar-title { font-size: 17px; font-weight: 700; }
     .topbar-right { display: flex; align-items: center; gap: 10px; }
-
     .live-dot {
-      display: flex; align-items: center; gap: 6px;
-      font-size: 12px; font-weight: 600;
+      display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
       background: rgba(255,255,255,0.15); padding: 5px 12px; border-radius: 99px;
     }
     .live-dot::before {
@@ -78,7 +77,6 @@
       70%  { box-shadow: 0 0 0 6px rgba(74,222,128,0); }
       100% { box-shadow: 0 0 0 0 rgba(74,222,128,0); }
     }
-
     .logout-btn {
       background: rgba(255,255,255,0.18); border: none; color: white;
       font-family: var(--font); font-size: 13px; font-weight: 600;
@@ -86,50 +84,118 @@
     }
     .logout-btn:hover { background: rgba(255,255,255,0.28); }
 
-    .container { max-width: 1100px; margin: 0 auto; padding: 28px 24px 48px; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 28px 24px 48px; }
 
     /* ── STATS ── */
-    .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 24px; }
-    .stat-card { background: var(--surface); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); border: 1px solid var(--border); }
-    .stat-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
-    .stat-value { font-family: var(--mono); font-size: 28px; font-weight: 700; color: var(--text); line-height: 1; }
-
-    /* ── TABLE ── */
-    .table-card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); overflow: hidden; }
-    .table-toolbar {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 16px 20px; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 12px;
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+      gap: 14px; margin-bottom: 24px;
     }
-    .table-toolbar-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .stat-card {
+      background: var(--surface); border-radius: var(--radius); padding: 16px 18px;
+      box-shadow: var(--shadow); border: 1px solid var(--border);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .stat-card.clickable { cursor: pointer; }
+    .stat-card.clickable:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
+    .stat-card.active-filter { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(37,99,235,0.2); }
+    .stat-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; }
+    .stat-value { font-family: var(--mono); font-size: 28px; font-weight: 700; color: var(--text); line-height: 1; }
+    .stat-overcharging .stat-value { color: #c2410c; }
+    .stat-reckless    .stat-value { color: #b91c1c; }
+    .stat-refusal     .stat-value { color: #7c3aed; }
+    .stat-verbal      .stat-value { color: #be123c; }
+    .stat-unsafe      .stat-value { color: #a16207; }
+    .stat-other       .stat-value { color: #15803d; }
+
+    /* ── TABLE CARD ── */
+    .table-card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); overflow: hidden; }
+
+    .table-toolbar { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 11px; }
+    .toolbar-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
     .toolbar-title { font-size: 15px; font-weight: 700; color: var(--text); }
+    .toolbar-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+    /* Search */
+    .search-wrap { position: relative; }
+    .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 13px; pointer-events: none; }
+    .search-input {
+      padding: 7px 10px 7px 32px; border: 1.5px solid var(--border); border-radius: 8px;
+      font-family: var(--font); font-size: 13px; color: var(--text);
+      background: var(--bg); outline: none; width: 190px; transition: border-color 0.15s, width 0.2s;
+    }
+    .search-input:focus { border-color: var(--primary); width: 230px; }
+
+    /* Selects */
     .filter-select {
-      padding: 6px 10px; border: 1.5px solid var(--border); border-radius: 8px;
+      padding: 7px 10px; border: 1.5px solid var(--border); border-radius: 8px;
       font-family: var(--font); font-size: 13px; color: var(--text);
       background: var(--bg); outline: none; cursor: pointer;
     }
     .filter-select:focus { border-color: var(--primary); }
 
+    /* Buttons */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 13px; border-radius: 8px; font-family: var(--font);
+      font-size: 13px; font-weight: 600; cursor: pointer; border: 1.5px solid transparent;
+      transition: all 0.15s; white-space: nowrap;
+    }
+    .btn-excel   { background: #16a34a; color: white; border-color: #16a34a; }
+    .btn-excel:hover { background: #15803d; }
+    .btn-del-sel {
+      background: var(--danger-light); color: var(--danger); border-color: #fca5a5;
+      opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .btn-del-sel.show { opacity: 1; pointer-events: auto; }
+
+    /* Mass selection banner */
+    .sel-banner {
+      display: none; align-items: center; gap: 10px;
+      background: #eff6ff; border-bottom: 1px solid #bfdbfe;
+      padding: 9px 18px; font-size: 13px; font-weight: 600; color: #1d4ed8;
+    }
+    .sel-banner.show { display: flex; }
+    .sel-banner-count { flex: 1; }
+    .sel-banner-desel {
+      background: white; border: 1.5px solid #bfdbfe; color: #1d4ed8;
+      padding: 5px 11px; border-radius: 7px; font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+    .sel-banner-del {
+      background: var(--danger); color: white; border: none;
+      padding: 6px 12px; border-radius: 7px; font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+
+    /* ── TABLE ── */
     .table-wrapper { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; }
     thead th {
       background: #f9fafb; color: var(--muted); font-size: 11px; font-weight: 700;
       text-transform: uppercase; letter-spacing: 0.07em;
-      padding: 11px 16px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap;
+      padding: 11px 14px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap;
     }
-    tbody td { padding: 13px 16px; border-bottom: 1px solid #f3f4f6; font-size: 14px; color: var(--text); vertical-align: middle; }
+    th.sortable { cursor: pointer; user-select: none; }
+    th.sortable:hover { color: #374151; }
+    th .sort-icon { margin-left: 3px; font-size: 9px; opacity: 0.35; }
+    th.sort-asc  .sort-icon::after { content: '▲'; opacity: 1; color: var(--primary); }
+    th.sort-desc .sort-icon::after { content: '▼'; opacity: 1; color: var(--primary); }
+    th.sort-asc, th.sort-desc { color: var(--primary); }
+
+    tbody td { padding: 12px 14px; border-bottom: 1px solid #f3f4f6; font-size: 14px; color: var(--text); vertical-align: middle; }
     tbody tr:last-child td { border-bottom: none; }
     tbody tr:hover td { background: #f9fafb; }
+    tbody tr.sel-row td { background: #eff6ff !important; }
+    @keyframes highlight { 0% { background: #eff6ff; } 100% { background: transparent; } }
     tbody tr.new-row td { animation: highlight 2s ease-out; }
-    @keyframes highlight {
-      0%   { background: #eff6ff; }
-      100% { background: transparent; }
-    }
 
-    .col-num  { font-family: var(--mono); font-size: 12px; color: var(--muted); width: 40px; }
+    .col-chk  { width: 38px; text-align: center; }
+    .col-num  { font-family: var(--mono); font-size: 12px; color: var(--muted); width: 36px; }
+    .col-img  { width: 66px; }
     .col-plate { font-family: var(--mono); font-weight: 700; font-size: 13px; white-space: nowrap; }
     .col-date { font-size: 12px; color: var(--muted); white-space: nowrap; }
-    .col-desc { max-width: 220px; word-break: break-word; font-size: 13px; color: #374151; line-height: 1.5; }
-    .col-img  { width: 72px; }
+    .col-desc { max-width: 200px; word-break: break-word; font-size: 13px; color: #374151; line-height: 1.5; }
+    .col-act  { width: 76px; text-align: center; }
 
     .type-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; white-space: nowrap; }
     .type-badge.overcharging { background: #fff7ed; color: #c2410c; }
@@ -140,25 +206,46 @@
     .type-badge.other        { background: #f0fdf4; color: #15803d; }
     .type-badge.default      { background: #f1f5f9; color: #475569; }
 
-    .report-thumb {
-      width: 56px; height: 56px; object-fit: cover;
-      border-radius: 8px; border: 1.5px solid var(--border);
-      cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; display: block;
-    }
+    .report-thumb { width: 50px; height: 50px; object-fit: cover; border-radius: 8px; border: 1.5px solid var(--border); cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; display: block; }
     .report-thumb:hover { transform: scale(1.08); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
     .no-img { font-size: 11px; color: var(--muted); font-style: italic; }
+
+    /* Row action icons */
+    .row-acts { display: flex; align-items: center; gap: 3px; justify-content: center; }
+    .icon-btn {
+      background: none; border: none; cursor: pointer; padding: 5px; border-radius: 6px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 15px; color: var(--muted); transition: background 0.15s, color 0.15s;
+    }
+    .icon-btn.pdf:hover { background: #eff6ff; color: var(--primary); }
+    .icon-btn.del:hover { background: var(--danger-light); color: var(--danger); }
+
+    input[type=checkbox] { width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer; }
 
     /* ── LIGHTBOX ── */
     .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9999; align-items: center; justify-content: center; padding: 20px; }
     .lightbox.show { display: flex; }
     .lightbox img { max-width: 100%; max-height: 90vh; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
-    .lightbox-close { position: absolute; top: 20px; right: 24px; background: rgba(255,255,255,0.15); border: none; color: white; font-size: 24px; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
-    .lightbox-close:hover { background: rgba(255,255,255,0.28); }
+    .lb-close { position: absolute; top: 20px; right: 24px; background: rgba(255,255,255,0.15); border: none; color: white; font-size: 24px; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+    .lb-close:hover { background: rgba(255,255,255,0.28); }
 
-    .empty-state { text-align: center; padding: 56px 24px; color: var(--muted); }
-    .empty-state .empty-icon { font-size: 40px; margin-bottom: 12px; }
+    /* ── CONFIRM MODAL ── */
+    .confirm-ov { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 8888; align-items: center; justify-content: center; padding: 20px; }
+    .confirm-ov.show { display: flex; }
+    .confirm-box { background: white; border-radius: 16px; padding: 28px; max-width: 360px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.25); text-align: center; }
+    .confirm-ico  { font-size: 38px; margin-bottom: 12px; }
+    .confirm-ttl  { font-size: 17px; font-weight: 800; margin-bottom: 8px; }
+    .confirm-msg  { font-size: 14px; color: var(--muted); margin-bottom: 22px; line-height: 1.5; }
+    .confirm-btns { display: flex; gap: 10px; }
+    .confirm-btns button { flex: 1; padding: 11px; border-radius: 10px; font-family: var(--font); font-size: 14px; font-weight: 700; cursor: pointer; border: 1.5px solid transparent; transition: opacity 0.15s; }
+    .c-cancel { background: var(--bg); color: var(--text); border-color: var(--border) !important; }
+    .c-ok     { background: var(--danger); color: white; }
+    .c-cancel:hover, .c-ok:hover { opacity: 0.85; }
+
+    /* ── MISC ── */
+    .empty-state { text-align: center; padding: 52px 24px; color: var(--muted); }
+    .empty-state .ei { font-size: 38px; margin-bottom: 10px; }
     .empty-state p { font-size: 15px; }
-
     .loading-state { text-align: center; padding: 48px; color: var(--muted); font-size: 14px; }
     .spinner-sm { width: 24px; height: 24px; border: 3px solid #e5e7eb; border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 12px; }
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -166,21 +253,19 @@
     .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: #1f2937; color: white; padding: 10px 20px; border-radius: 99px; font-size: 14px; font-weight: 500; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s; opacity: 0; pointer-events: none; z-index: 9999; white-space: nowrap; }
     .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
-    .col-action { width: 48px; text-align: center; }
-    .delete-btn {
-      background: none; border: none; cursor: pointer;
-      color: var(--muted); padding: 6px; border-radius: 6px;
-      display: inline-flex; align-items: center; justify-content: center;
-      transition: background 0.15s, color 0.15s;
-      font-size: 16px; line-height: 1;
-    }
-    .delete-btn:hover { background: var(--danger-light); color: var(--danger); }
-
-    @media (max-width: 600px) {
-      .container { padding: 16px 14px 48px; }
+    @media (max-width: 640px) {
+      .container { padding: 16px 12px 48px; }
       .topbar { padding: 0 14px; }
-      .topbar-title { font-size: 15px; }
-      .login-card { padding: 32px 22px; }
+      .search-input { width: 130px; }
+      .search-input:focus { width: 155px; }
+      .live-dot { display: none; }
+    }
+
+    /* ── PRINT ── */
+    #print-area { display: none; }
+    @media print {
+      body > *:not(#print-area) { display: none !important; }
+      #print-area { display: block !important; }
     }
   </style>
 </head>
@@ -189,7 +274,7 @@
 <!-- ── LOGIN ── -->
 <div id="login-screen">
   <div class="login-card">
-    <div class="login-logo" style="font-size:32px;font-weight:900;color:#2563eb;letter-spacing:-1px;">GG</div>
+    <div class="login-logo">GG</div>
     <div class="login-title">Geo GenSan</div>
     <div class="login-subtitle">Tricycle Reports Dashboard</div>
     <label class="login-label" for="login-input">Password</label>
@@ -204,6 +289,7 @@
   <div class="topbar">
     <div class="topbar-left">
       <span class="topbar-title">Geo GenSan</span>
+      <span class="live-dot">Live</span>
     </div>
     <div class="topbar-right">
       <button class="logout-btn" id="logout-btn">Logout</button>
@@ -211,213 +297,556 @@
   </div>
 
   <div class="container">
-    <div class="stats-row">
+
+    <!-- STATS ROW -->
+    <div class="stats-row" id="stats-row">
       <div class="stat-card">
         <div class="stat-label">Total Reports</div>
         <div class="stat-value" id="stat-total">—</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Last Report</div>
-        <div class="stat-value" id="stat-last" style="font-size:13px;padding-top:8px;">—</div>
-      </div>
+      <!-- type breakdown injected by JS -->
     </div>
 
+    <!-- TABLE CARD -->
     <div class="table-card">
+
+      <!-- Toolbar -->
       <div class="table-toolbar">
-        <div class="table-toolbar-left">
+        <!-- Row 1: title + action buttons -->
+        <div class="toolbar-row">
           <span class="toolbar-title">Tricycle Reports</span>
-          <select class="filter-select" id="filter-type">
-            <option value="">All Types</option>
-            <option value="Overcharging">Overcharging</option>
-            <option value="Reckless Driving">Reckless Driving</option>
-            <option value="Refusal of Service">Refusal of Service</option>
-            <option value="Verbal Abuse">Verbal Abuse</option>
-            <option value="Unsafe Vehicle">Unsafe Vehicle</option>
-            <option value="Other">Other</option>
-          </select>
+          <div class="toolbar-controls">
+            <button class="btn btn-del-sel" id="btn-del-sel">
+              🗑 Delete Selected&nbsp;(<span id="sel-count">0</span>)
+            </button>
+            <button class="btn btn-excel" id="btn-excel">📊 Export Excel</button>
+          </div>
+        </div>
+        <!-- Row 2: search + filters -->
+        <div class="toolbar-row">
+          <div class="toolbar-controls">
+            <div class="search-wrap">
+              <span class="search-icon">🔍</span>
+              <input type="text" class="search-input" id="search-plate" placeholder="Search plate no…" autocomplete="off">
+            </div>
+            <select class="filter-select" id="filter-type">
+              <option value="">All Types</option>
+              <option value="Overcharging">Overcharging</option>
+              <option value="Reckless Driving">Reckless Driving</option>
+              <option value="Refusal of Service">Refusal of Service</option>
+              <option value="Verbal Abuse">Verbal Abuse</option>
+              <option value="Unsafe Vehicle">Unsafe Vehicle</option>
+              <option value="Other">Other</option>
+            </select>
+            <select class="filter-select" id="sort-date">
+              <option value="desc">Newest First</option>
+              <option value="asc">Oldest First</option>
+            </select>
+          </div>
         </div>
       </div>
 
+      <!-- Selection banner -->
+      <div class="sel-banner" id="sel-banner">
+        <span class="sel-banner-count" id="sel-banner-count">0 selected</span>
+        <button class="sel-banner-desel" id="btn-deselect-all">Deselect All</button>
+        <button class="sel-banner-del"   id="btn-mass-delete">🗑 Delete Selected</button>
+      </div>
+
+      <!-- Table -->
       <div class="table-wrapper">
         <table>
           <thead>
             <tr>
+              <th class="col-chk"><input type="checkbox" id="check-all" title="Select / deselect all"></th>
               <th class="col-num">#</th>
-              <th>Photo</th>
-              <th>Plate No.</th>
-              <th>Date &amp; Time</th>
+              <th class="col-img">Photo</th>
+              <th class="sortable" data-col="plate">Plate No.<span class="sort-icon"></span></th>
+              <th class="sortable sort-desc" data-col="date">Date &amp; Time<span class="sort-icon"></span></th>
               <th>Type</th>
               <th>Description</th>
-              <th class="col-action"></th>
+              <th class="col-act">Actions</th>
             </tr>
           </thead>
           <tbody id="reports-tbody">
-            <tr><td colspan="7"><div class="loading-state"><div class="spinner-sm"></div>Loading reports...</div></td></tr>
+            <tr><td colspan="8"><div class="loading-state"><div class="spinner-sm"></div>Loading reports…</div></td></tr>
           </tbody>
         </table>
       </div>
-    </div>
+    </div><!-- /table-card -->
   </div>
 </div>
 
 <!-- Lightbox -->
 <div class="lightbox" id="lightbox">
-  <button class="lightbox-close" id="lightbox-close">✕</button>
-  <img id="lightbox-img" src="" alt="Report photo">
+  <button class="lb-close" id="lb-close">✕</button>
+  <img id="lb-img" src="" alt="Report photo">
 </div>
+
+<!-- Confirm dialog -->
+<div class="confirm-ov" id="confirm-ov">
+  <div class="confirm-box">
+    <div class="confirm-ico">🗑️</div>
+    <div class="confirm-ttl" id="confirm-ttl">Delete?</div>
+    <div class="confirm-msg" id="confirm-msg">This cannot be undone.</div>
+    <div class="confirm-btns">
+      <button class="c-cancel" id="c-cancel">Cancel</button>
+      <button class="c-ok"     id="c-ok">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden print container -->
+<div id="print-area"></div>
 
 <div class="toast" id="toast"></div>
 
 <script>
+  /* ════════════════════════════════════════════════════
+     CONFIG
+  ════════════════════════════════════════════════════ */
   const FIREBASE_DB_URL = 'https://gentrike-75c7c-default-rtdb.asia-southeast1.firebasedatabase.app';
   const ADMIN_PASSWORD  = '00000000';
 
-  // ── Toast ──────────────────────────────────────────────────────────────────
-  function showToast(msg, duration = 2500) {
+  /* ── helpers ──────────────────────────────────────── */
+  function escapeHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function showToast(msg, ms = 2600) {
     const t = document.getElementById('toast');
     t.textContent = msg; t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), duration);
+    setTimeout(() => t.classList.remove('show'), ms);
   }
 
-  function escapeHtml(str) {
-    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
-
-  // ── Firebase REST helpers ─────────────────────────────────────────────────
+  /* ── Firebase ─────────────────────────────────────── */
   async function fbGetAll() {
-    const res = await fetch(`${FIREBASE_DB_URL}/reports.json`);
-    if (!res.ok) throw new Error('Firebase read failed');
+    const res  = await fetch(`${FIREBASE_DB_URL}/reports.json`);
+    if (!res.ok) throw new Error('read failed');
     const data = await res.json();
     if (!data) return [];
-    return Object.entries(data)
-      .map(([key, val]) => ({ _key: key, ...val }))
-      .sort((a, b) => b.timestamp - a.timestamp);
+    return Object.entries(data).map(([k, v]) => ({ _key: k, ...v }));
   }
-
-  // ── Type helpers ──────────────────────────────────────────────────────────
-  const TYPE_CLASSES = { 'Overcharging':'overcharging','Reckless Driving':'reckless','Refusal of Service':'refusal','Verbal Abuse':'verbal','Unsafe Vehicle':'unsafe','Other':'other' };
-  const TYPE_ICONS   = { 'Overcharging':'','Reckless Driving':'','Refusal of Service':'','Verbal Abuse':'','Unsafe Vehicle':'','Other':'' };
-
-  // ── Firebase delete ───────────────────────────────────────────────────────
   async function fbDelete(key) {
     const res = await fetch(`${FIREBASE_DB_URL}/reports/${key}.json`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('Firebase delete failed');
+    if (!res.ok) throw new Error('delete failed');
   }
 
-  async function deleteReport(key) {
-    if (!confirm('Delete this report? This cannot be undone.')) return;
-    try {
-      await fbDelete(key);
-      allReports = allReports.filter(r => r._key !== key);
-      renderTable(document.getElementById('filter-type')?.value || '');
-      showToast('Report deleted');
-    } catch (err) {
-      console.error('Delete error:', err);
-      showToast('❌ Failed to delete report');
-    }
+  /* ── Type maps ────────────────────────────────────── */
+  const TYPE_CLS = {
+    'Overcharging':'overcharging','Reckless Driving':'reckless',
+    'Refusal of Service':'refusal','Verbal Abuse':'verbal',
+    'Unsafe Vehicle':'unsafe','Other':'other'
+  };
+  const TYPE_ICO = {
+    'Overcharging':'💸','Reckless Driving':'🚗','Refusal of Service':'🚫',
+    'Verbal Abuse':'🗣️','Unsafe Vehicle':'⚠️','Other':'📋'
+  };
+  const TYPE_STAT_CLS = {
+    'Overcharging':'stat-overcharging','Reckless Driving':'stat-reckless',
+    'Refusal of Service':'stat-refusal','Verbal Abuse':'stat-verbal',
+    'Unsafe Vehicle':'stat-unsafe','Other':'stat-other'
+  };
+
+  /* ════════════════════════════════════════════════════
+     STATE
+  ════════════════════════════════════════════════════ */
+  let allReports   = [];
+  let selectedKeys = new Set();
+  let sortCol      = 'date';
+  let sortDir      = 'desc';
+  let pollInterval = null;
+  let isFirstLoad  = true;
+
+  /* ════════════════════════════════════════════════════
+     CONFIRM DIALOG
+  ════════════════════════════════════════════════════ */
+  let _confirmResolve = null;
+  function confirm(title, msg) {
+    return new Promise(res => {
+      _confirmResolve = res;
+      document.getElementById('confirm-ttl').textContent = title;
+      document.getElementById('confirm-msg').textContent = msg;
+      document.getElementById('confirm-ov').classList.add('show');
+    });
+  }
+  document.getElementById('c-cancel').onclick = () => {
+    document.getElementById('confirm-ov').classList.remove('show');
+    _confirmResolve && _confirmResolve(false);
+  };
+  document.getElementById('c-ok').onclick = () => {
+    document.getElementById('confirm-ov').classList.remove('show');
+    _confirmResolve && _confirmResolve(true);
+  };
+
+  /* ════════════════════════════════════════════════════
+     STATS
+  ════════════════════════════════════════════════════ */
+  function updateStats() {
+    document.getElementById('stat-total').textContent = allReports.length;
+
+    const counts = {};
+    allReports.forEach(r => { counts[r.type] = (counts[r.type] || 0) + 1; });
+
+    const row = document.getElementById('stats-row');
+    row.querySelectorAll('.dyn-stat').forEach(c => c.remove());
+
+    const currentFilter = document.getElementById('filter-type').value;
+
+    Object.entries(counts).sort((a,b) => b[1]-a[1]).forEach(([type, count]) => {
+      const cls  = TYPE_STAT_CLS[type] || '';
+      const card = document.createElement('div');
+      card.className = `stat-card dyn-stat clickable ${cls}${currentFilter === type ? ' active-filter' : ''}`;
+      card.title = `Filter by: ${type}`;
+      card.innerHTML = `<div class="stat-label">${escapeHtml(type)}</div><div class="stat-value">${count}</div>`;
+      card.addEventListener('click', () => {
+        const ft = document.getElementById('filter-type');
+        ft.value = (ft.value === type) ? '' : type; // toggle
+        updateStats();
+        applyAndRender();
+      });
+      row.appendChild(card);
+    });
   }
 
+  /* ════════════════════════════════════════════════════
+     PIPELINE: filter → sort → render
+  ════════════════════════════════════════════════════ */
+  function getFiltered() {
+    const ft     = document.getElementById('filter-type').value;
+    const search = document.getElementById('search-plate').value.trim().toLowerCase();
+    const sd     = document.getElementById('sort-date').value;
 
-  let allReports = [];
+    let list = [...allReports];
+    if (ft)     list = list.filter(r => r.type === ft);
+    if (search) list = list.filter(r => (r.plate||'').toLowerCase().includes(search));
 
-  function renderTable(filterType = '') {
-    const tbody     = document.getElementById('reports-tbody');
-    const statTotal = document.getElementById('stat-total');
-    const statLast  = document.getElementById('stat-last');
+    list.sort((a, b) => {
+      if (sortCol === 'plate') {
+        const diff = (a.plate||'').toLowerCase().localeCompare((b.plate||'').toLowerCase());
+        return sortDir === 'asc' ? diff : -diff;
+      }
+      // date: use timestamp; also respect sort-date dropdown when col = date
+      const ta = a.timestamp || 0, tb = b.timestamp || 0;
+      return sd === 'asc' ? ta - tb : tb - ta;
+    });
 
-    statTotal.textContent = allReports.length;
+    return list;
+  }
 
-    if (allReports.length > 0) {
-      statLast.textContent = allReports[0]?.date?.split(',')[0] || '—';
-    } else {
-      statLast.textContent = '—';
-    }
+  function applyAndRender() { renderTable(getFiltered()); }
 
-    let filtered = filterType ? allReports.filter(r => r.type === filterType) : allReports;
+  /* ════════════════════════════════════════════════════
+     RENDER TABLE
+  ════════════════════════════════════════════════════ */
+  function renderTable(filtered) {
+    const tbody = document.getElementById('reports-tbody');
 
     if (filtered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📋</div><p>${filterType ? 'No reports of this type.' : 'No reports yet.'}</p></div></td></tr>`;
+      const hasFilter = document.getElementById('filter-type').value || document.getElementById('search-plate').value;
+      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="ei">📋</div><p>${hasFilter ? 'No matching reports.' : 'No reports yet.'}</p></div></td></tr>`;
+      syncCheckAll(filtered);
       return;
     }
 
     tbody.innerHTML = filtered.map((r, i) => {
-      const cls  = TYPE_CLASSES[r.type] || 'default';
-      const icon = TYPE_ICONS[r.type]   || '📋';
+      const cls     = TYPE_CLS[r.type] || 'default';
+      const ico     = TYPE_ICO[r.type] || '📋';
       const imgCell = r.imageUrl
-        ? `<img class="report-thumb" src="${escapeHtml(r.imageUrl)}" alt="plate photo" data-src="${escapeHtml(r.imageUrl)}">`
+        ? `<img class="report-thumb" src="${escapeHtml(r.imageUrl)}" alt="photo" data-src="${escapeHtml(r.imageUrl)}">`
         : `<span class="no-img">No photo</span>`;
-      return `<tr>
-        <td class="col-num">${i + 1}</td>
+      const checked = selectedKeys.has(r._key) ? 'checked' : '';
+      const rowcls  = selectedKeys.has(r._key) ? 'sel-row' : '';
+      return `<tr class="${rowcls}" data-key="${escapeHtml(r._key)}">
+        <td class="col-chk"><input type="checkbox" class="row-chk" data-key="${escapeHtml(r._key)}" ${checked}></td>
+        <td class="col-num">${i+1}</td>
         <td class="col-img">${imgCell}</td>
-        <td class="col-plate">${escapeHtml(r.plate || '—')}</td>
-        <td class="col-date">${escapeHtml(r.date || '—')}</td>
-        <td><span class="type-badge ${cls}">${icon} ${escapeHtml(r.type)}</span></td>
-        <td class="col-desc">${escapeHtml(r.description)}</td>
-        <td class="col-action"><button class="delete-btn" data-key="${escapeHtml(r._key)}" title="Delete report">&#x2715;</button></td>
+        <td class="col-plate">${escapeHtml(r.plate||'—')}</td>
+        <td class="col-date">${escapeHtml(r.date||'—')}</td>
+        <td><span class="type-badge ${cls}">${ico} ${escapeHtml(r.type)}</span></td>
+        <td class="col-desc">${escapeHtml(r.description||'')}</td>
+        <td class="col-act">
+          <div class="row-acts">
+            <button class="icon-btn pdf" data-key="${escapeHtml(r._key)}" title="Print / Save PDF">🖨️</button>
+            <button class="icon-btn del" data-key="${escapeHtml(r._key)}" title="Delete">✕</button>
+          </div>
+        </td>
       </tr>`;
     }).join('');
 
-    // Thumbnail click → lightbox
-    tbody.querySelectorAll('.report-thumb').forEach(img => {
-      img.addEventListener('click', () => openLightbox(img.dataset.src));
-    });
+    /* event listeners */
+    tbody.querySelectorAll('.report-thumb').forEach(img =>
+      img.addEventListener('click', () => openLightbox(img.dataset.src)));
 
-    // Delete button click
-    tbody.querySelectorAll('.delete-btn').forEach(btn => {
-      btn.addEventListener('click', () => deleteReport(btn.dataset.key));
-    });
+    tbody.querySelectorAll('.icon-btn.del').forEach(btn =>
+      btn.addEventListener('click', () => deleteSingle(btn.dataset.key)));
+
+    tbody.querySelectorAll('.icon-btn.pdf').forEach(btn =>
+      btn.addEventListener('click', () => {
+        const r = allReports.find(x => x._key === btn.dataset.key);
+        if (r) printReport(r);
+      }));
+
+    tbody.querySelectorAll('.row-chk').forEach(cb =>
+      cb.addEventListener('change', () => {
+        cb.checked ? selectedKeys.add(cb.dataset.key) : selectedKeys.delete(cb.dataset.key);
+        cb.closest('tr').classList.toggle('sel-row', cb.checked);
+        updateSelUI();
+      }));
+
+    syncCheckAll(filtered);
+    updateSelUI();
   }
 
-  // ── Polling (live updates every 10s) ─────────────────────────────────────
-  let pollInterval = null;
-  let isFirstLoad  = true;
+  function syncCheckAll(filtered) {
+    const ca = document.getElementById('check-all');
+    ca.checked       = filtered.length > 0 && filtered.every(r => selectedKeys.has(r._key));
+    ca.indeterminate = !ca.checked && filtered.some(r => selectedKeys.has(r._key));
+  }
 
+  function updateSelUI() {
+    const n = selectedKeys.size;
+    document.getElementById('sel-count').textContent = n;
+    document.getElementById('btn-del-sel').classList.toggle('show', n > 0);
+    document.getElementById('sel-banner').classList.toggle('show', n > 0);
+    document.getElementById('sel-banner-count').textContent = `${n} report${n!==1?'s':''} selected`;
+  }
+
+  /* ════════════════════════════════════════════════════
+     DELETE
+  ════════════════════════════════════════════════════ */
+  async function deleteSingle(key) {
+    const r = allReports.find(x => x._key === key);
+    const ok = await confirm('Delete Report?', `Remove the report for plate "${r?.plate||key}"? This cannot be undone.`);
+    if (!ok) return;
+    try {
+      await fbDelete(key);
+      allReports = allReports.filter(x => x._key !== key);
+      selectedKeys.delete(key);
+      updateStats(); applyAndRender();
+      showToast('✅ Report deleted');
+    } catch { showToast('❌ Delete failed'); }
+  }
+
+  async function deleteMass() {
+    if (!selectedKeys.size) return;
+    const n  = selectedKeys.size;
+    const ok = await confirm(`Delete ${n} Report${n!==1?'s':''}?`, `Permanently remove ${n} selected report${n!==1?'s':''}? This cannot be undone.`);
+    if (!ok) return;
+    try {
+      await Promise.all([...selectedKeys].map(k => fbDelete(k)));
+      const deleted = new Set(selectedKeys);
+      allReports = allReports.filter(r => !deleted.has(r._key));
+      selectedKeys.clear();
+      updateStats(); applyAndRender();
+      showToast(`✅ ${n} report${n!==1?'s':''} deleted`);
+    } catch { showToast('❌ Some deletions failed'); }
+  }
+
+  /* ════════════════════════════════════════════════════
+     CHECK-ALL + BANNER BUTTONS
+  ════════════════════════════════════════════════════ */
+  document.getElementById('check-all').addEventListener('change', function() {
+    const filtered = getFiltered();
+    if (this.checked) filtered.forEach(r => selectedKeys.add(r._key));
+    else              filtered.forEach(r => selectedKeys.delete(r._key));
+    applyAndRender();
+  });
+  document.getElementById('btn-deselect-all').addEventListener('click', () => { selectedKeys.clear(); applyAndRender(); });
+  document.getElementById('btn-mass-delete').addEventListener('click', deleteMass);
+  document.getElementById('btn-del-sel').addEventListener('click', deleteMass);
+
+  /* ════════════════════════════════════════════════════
+     SORT HEADERS
+  ════════════════════════════════════════════════════ */
+  document.querySelectorAll('th.sortable').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.col;
+      if (sortCol === col) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+      else { sortCol = col; sortDir = 'asc'; }
+      document.querySelectorAll('th.sortable').forEach(t => t.classList.remove('sort-asc','sort-desc'));
+      th.classList.add(sortDir === 'asc' ? 'sort-asc' : 'sort-desc');
+      applyAndRender();
+    });
+  });
+
+  /* ════════════════════════════════════════════════════
+     FILTERS
+  ════════════════════════════════════════════════════ */
+  document.getElementById('filter-type').addEventListener('change', () => { updateStats(); applyAndRender(); });
+  document.getElementById('sort-date').addEventListener('change', applyAndRender);
+  document.getElementById('search-plate').addEventListener('input', applyAndRender);
+
+  /* ════════════════════════════════════════════════════
+     PRINT / PDF  (browser's Save-as-PDF)
+  ════════════════════════════════════════════════════ */
+  function printReport(r) {
+    const pa = document.getElementById('print-area');
+    pa.innerHTML = `
+      <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700;900&display=swap');
+        *{box-sizing:border-box;margin:0;padding:0;}
+        body{font-family:'DM Sans',Arial,sans-serif;color:#111827;background:white;}
+        .wrap{max-width:680px;margin:0 auto;padding:36px 40px;}
+        /* header */
+        .hdr{display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:14px;border-bottom:3px solid #2563eb;margin-bottom:26px;}
+        .hdr-logo{font-size:24px;font-weight:900;color:#2563eb;letter-spacing:-0.5px;}
+        .hdr-sub{font-size:11px;color:#6b7280;margin-top:3px;}
+        .hdr-ref{text-align:right;font-size:11px;color:#6b7280;line-height:1.7;}
+        .hdr-ref strong{color:#111827;}
+        /* title */
+        .doc-title{font-size:20px;font-weight:900;margin-bottom:6px;}
+        .doc-sub{font-size:13px;color:#6b7280;margin-bottom:22px;}
+        /* grid */
+        .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 28px;margin-bottom:22px;}
+        .field label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#6b7280;display:block;margin-bottom:4px;}
+        .field span{font-size:14px;font-weight:600;color:#111827;}
+        /* badge */
+        .badge{display:inline-block;padding:3px 12px;border-radius:99px;font-size:12px;font-weight:700;background:#fff7ed;color:#c2410c;}
+        /* description */
+        .desc-box{background:#f9fafb;border-left:4px solid #2563eb;border-radius:6px;padding:14px 16px;margin-bottom:22px;}
+        .desc-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#6b7280;margin-bottom:7px;}
+        .desc-txt{font-size:14px;line-height:1.65;color:#374151;}
+        /* image */
+        .img-box{margin-bottom:22px;}
+        .img-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#6b7280;margin-bottom:8px;}
+        .img-lbl span{font-weight:400;color:#9ca3af;}
+        .report-img{max-width:340px;max-height:260px;object-fit:contain;border-radius:10px;border:1.5px solid #e5e7eb;display:block;}
+        /* disclaimer */
+        .disc{background:#fefce8;border:1px solid #fde68a;border-radius:7px;padding:11px 14px;font-size:12px;color:#92400e;margin-top:6px;margin-bottom:22px;line-height:1.6;}
+        /* signature */
+        .sig{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:32px;}
+        .sig-box{border-top:1.5px solid #d1d5db;padding-top:8px;}
+        .sig-lbl{font-size:11px;color:#6b7280;}
+        /* footer */
+        .ftr{margin-top:28px;padding-top:12px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;font-size:10.5px;color:#9ca3af;}
+      </style>
+      <div class="wrap">
+        <div class="hdr">
+          <div>
+            <div class="hdr-logo">Geo GenSan</div>
+            <div class="hdr-sub">Tricycle Report System · General Santos City</div>
+          </div>
+          <div class="hdr-ref">
+            <div>Report ID: <strong>${escapeHtml(r._key)}</strong></div>
+            <div>Printed: <strong>${new Date().toLocaleString('en-PH',{dateStyle:'long',timeStyle:'short'})}</strong></div>
+          </div>
+        </div>
+
+        <div class="doc-title">Tricycle Incident Report</div>
+        <div class="doc-sub">Official report filed through the Geo GenSan public reporting system.</div>
+
+        <div class="grid">
+          <div class="field"><label>Plate Number</label><span>${escapeHtml(r.plate||'—')}</span></div>
+          <div class="field"><label>Date &amp; Time Filed</label><span>${escapeHtml(r.date||'—')}</span></div>
+          <div class="field"><label>Violation Type</label><span class="badge">${escapeHtml(r.type||'—')}</span></div>
+          <div class="field"><label>Status</label><span>Filed — Pending Review</span></div>
+        </div>
+
+        <div class="desc-box">
+          <div class="desc-lbl">Incident Description</div>
+          <div class="desc-txt">${escapeHtml(r.description||'No description provided.')}</div>
+        </div>
+
+        ${r.imageUrl ? `
+        <div class="img-box">
+          <div class="img-lbl">Attached Photo <span>(Plate / Vehicle Evidence)</span></div>
+          <img class="report-img" src="${escapeHtml(r.imageUrl)}" alt="Evidence photo" crossorigin="anonymous">
+        </div>` : ''}
+
+        <div class="disc">
+          ⚠️ This is an official incident report filed by a member of the public through the Geo GenSan system.
+          The information above is submitted as-is and is pending verification by the appropriate authority.
+        </div>
+
+        <div class="sig">
+          <div class="sig-box"><div class="sig-lbl">Received by / Verified by</div></div>
+          <div class="sig-box"><div class="sig-lbl">Authorized Signature &amp; Date</div></div>
+        </div>
+
+        <div class="ftr">
+          <span>Geo GenSan — General Santos City Tricycle Monitoring System</span>
+          <span>CONFIDENTIAL · For official use only</span>
+        </div>
+      </div>`;
+
+    pa.style.display = 'block';
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => { pa.style.display = 'none'; }, 800);
+    }, 300); // small delay so image can load
+  }
+
+  /* ════════════════════════════════════════════════════
+     EXCEL EXPORT
+  ════════════════════════════════════════════════════ */
+  document.getElementById('btn-excel').addEventListener('click', () => {
+    if (!allReports.length) { showToast('No reports to export'); return; }
+
+    const rows = allReports.map((r, i) => ({
+      '#':             i + 1,
+      'Plate No.':     r.plate        || '—',
+      'Date & Time':   r.date         || '—',
+      'Type':          r.type         || '—',
+      'Description':   r.description  || '—',
+      'Photo URL':     r.imageUrl     || 'No photo'
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{ wch:4 },{ wch:14 },{ wch:26 },{ wch:22 },{ wch:54 },{ wch:60 }];
+
+    // Style header row bold (basic)
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const cell = ws[XLSX.utils.encode_cell({ r: 0, c })];
+      if (cell) cell.s = { font: { bold: true } };
+    }
+
+    const wb   = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Reports');
+
+    const date = new Date().toISOString().slice(0,10);
+    XLSX.writeFile(wb, `GeoGenSan_Reports_${date}.xlsx`);
+    showToast('📊 Excel file exported!');
+  });
+
+  /* ════════════════════════════════════════════════════
+     POLLING
+  ════════════════════════════════════════════════════ */
   async function loadReports() {
     try {
       const fresh = await fbGetAll();
-      const filterType = document.getElementById('filter-type')?.value || '';
-
-      // Detect new reports (for flash animation) after first load
-      if (!isFirstLoad && fresh.length > allReports.length) {
-        showToast('New report received!');
-      }
+      if (!isFirstLoad && fresh.length > allReports.length) showToast('🔔 New report received!');
       isFirstLoad = false;
       allReports  = fresh;
-      renderTable(filterType);
+      updateStats();
+      applyAndRender();
     } catch (err) {
-      console.error('Load error:', err);
-      if (isFirstLoad) {
+      console.error(err);
+      if (isFirstLoad)
         document.getElementById('reports-tbody').innerHTML =
-          `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">⚠️</div><p>Failed to load reports. Check connection.</p></div></td></tr>`;
-      }
+          `<tr><td colspan="8"><div class="empty-state"><div class="ei">⚠️</div><p>Failed to load. Check connection.</p></div></td></tr>`;
     }
   }
 
-  function startPolling() {
-    loadReports();
-    pollInterval = setInterval(loadReports, 10000); // refresh every 10s
-  }
+  function startPolling() { loadReports(); pollInterval = setInterval(loadReports, 10000); }
+  function stopPolling()  { clearInterval(pollInterval); pollInterval = null; }
 
-  function stopPolling() {
-    clearInterval(pollInterval);
-    pollInterval = null;
-  }
-
-  // ── Lightbox ──────────────────────────────────────────────────────────────
-  const lightbox      = document.getElementById('lightbox');
-  const lightboxImg   = document.getElementById('lightbox-img');
-  const lightboxClose = document.getElementById('lightbox-close');
-
-  function openLightbox(src) { lightboxImg.src = src; lightbox.classList.add('show'); }
-  lightboxClose.addEventListener('click', () => lightbox.classList.remove('show'));
+  /* ════════════════════════════════════════════════════
+     LIGHTBOX
+  ════════════════════════════════════════════════════ */
+  const lightbox = document.getElementById('lightbox');
+  const lbImg    = document.getElementById('lb-img');
+  function openLightbox(src) { lbImg.src = src; lightbox.classList.add('show'); }
+  document.getElementById('lb-close').onclick = () => lightbox.classList.remove('show');
   lightbox.addEventListener('click', e => { if (e.target === lightbox) lightbox.classList.remove('show'); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') lightbox.classList.remove('show'); });
 
-  // ── Login ─────────────────────────────────────────────────────────────────
+  /* ════════════════════════════════════════════════════
+     LOGIN / LOGOUT
+  ════════════════════════════════════════════════════ */
   const loginScreen = document.getElementById('login-screen');
   const adminScreen = document.getElementById('admin-screen');
   const loginInput  = document.getElementById('login-input');
-  const loginBtn    = document.getElementById('login-btn');
   const loginError  = document.getElementById('login-error');
 
   function doLogin() {
@@ -427,27 +856,20 @@
       isFirstLoad = true;
       startPolling();
     } else {
-      loginError.textContent = '❌ Incorrect password. Try again.';
-      loginInput.value = '';
-      loginInput.focus();
+      loginError.textContent = '❌ Incorrect password.';
+      loginInput.value = ''; loginInput.focus();
       setTimeout(() => { loginError.textContent = ''; }, 3000);
     }
   }
-
-  loginBtn.addEventListener('click', doLogin);
-  loginInput.addEventListener('keypress', e => { if (e.key === 'Enter') doLogin(); });
+  document.getElementById('login-btn').addEventListener('click', doLogin);
+  document.getElementById('login-input').addEventListener('keypress', e => { if (e.key === 'Enter') doLogin(); });
 
   document.getElementById('logout-btn').addEventListener('click', () => {
-    stopPolling();
-    allReports = [];
-    isFirstLoad = true;
+    stopPolling(); allReports = []; selectedKeys.clear(); isFirstLoad = true;
     adminScreen.style.display = 'none';
     loginScreen.style.display = 'flex';
     loginInput.value = '';
   });
-
-  // ── Filter ────────────────────────────────────────────────────────────────
-  document.getElementById('filter-type').addEventListener('change', e => renderTable(e.target.value));
 </script>
 </body>
 </html>
