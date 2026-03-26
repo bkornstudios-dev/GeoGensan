@@ -312,8 +312,8 @@
 <!-- ── LOGIN ── -->
 <div id="login-screen">
   <div class="login-card">
-    <div class="login-logo">GG</div>
-    <div class="login-title">Geo GenSan</div>
+    <div class="login-logo">Geo Gensan</div>
+    <div class="login-title">Admin</div>
     <div class="login-subtitle">Tricycle Reports Dashboard</div>
     <label class="login-label" for="login-input">Password</label>
     <input type="password" class="login-input" id="login-input" placeholder="••••••••" maxlength="20" autocomplete="off">
@@ -346,7 +346,7 @@
             <div class="stats-total-label">Top Violation</div>
             <div class="stats-total-val stats-top-type" id="stat-top-type">—</div>
           </div>
-          <button class="toggle-breakdown-btn" id="toggle-breakdown-btn">Show Breakdown</button>
+          <button class="toggle-breakdown-btn" id="toggle-breakdown-btn">More</button>
         </div>
       </div>
       <!-- Collapsible type breakdown -->
@@ -550,7 +550,7 @@ const breakdownEl = document.getElementById('breakdown-row');
 toggleBtn.addEventListener('click', () => {
   breakdownOpen = !breakdownOpen;
   breakdownEl.classList.toggle('open', breakdownOpen);
-  toggleBtn.textContent = breakdownOpen ? 'Hide Breakdown' : 'Show Breakdown';
+  toggleBtn.textContent = breakdownOpen ? 'Hide' : 'More';
   toggleBtn.classList.toggle('active', breakdownOpen);
 });
 
