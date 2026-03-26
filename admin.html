@@ -536,7 +536,7 @@ const breakdownEl = document.getElementById('breakdown-row');
 toggleBtn.addEventListener('click', () => {
   breakdownOpen = !breakdownOpen;
   breakdownEl.classList.toggle('open', breakdownOpen);
-  toggleBtn.textContent = breakdownOpen ? 'Hide Breakdown' : 'Show Breakdown';
+  toggleBtn.textContent = breakdownOpen ? 'Close' : 'More';
   toggleBtn.classList.toggle('active', breakdownOpen);
 });
 
