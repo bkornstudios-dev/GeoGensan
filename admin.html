@@ -305,6 +305,73 @@
       body > *:not(#print-area) { display: none !important; }
       #print-area { display: block !important; }
     }
+
+    /* ── FARE EDITOR ── */
+    .fare-editor-card {
+      background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
+      border: 1px solid var(--border); overflow: hidden; margin-bottom: 24px;
+    }
+    .fare-editor-header {
+      background: linear-gradient(135deg, rgba(37,99,235,0.08), rgba(124,58,237,0.08));
+      border-bottom: 1px solid var(--border);
+      padding: 16px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .fare-editor-title { font-size: 15px; font-weight: 700; color: var(--text); }
+    .fare-editor-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .fare-editor-body { padding: 20px; }
+    .fare-fields-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px;
+      margin-bottom: 16px;
+    }
+    .fare-field label {
+      display: block; font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--muted); margin-bottom: 6px;
+    }
+    .fare-field input[type=number] {
+      width: 100%; padding: 10px 14px; border: 1.5px solid var(--border);
+      border-radius: 10px; font-family: var(--mono); font-size: 16px; font-weight: 700;
+      color: var(--text); background: var(--bg); outline: none; transition: border-color 0.15s;
+    }
+    .fare-field input[type=number]:focus { border-color: var(--primary); background: white; }
+    .fare-field-hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .fare-preview-box {
+      background: #f0fdf4; border: 1px solid #86efac; border-radius: 10px;
+      padding: 12px 16px; margin-bottom: 16px; font-size: 13px; color: #166534;
+    }
+    .fare-preview-label { font-weight: 700; margin-bottom: 4px; }
+    .fare-preview-formula { font-family: var(--mono); font-size: 14px; }
+    .fare-save-btn {
+      padding: 11px 24px; background: linear-gradient(135deg, #2563eb, #7c3aed);
+      color: white; border: none; border-radius: 10px; font-family: var(--font);
+      font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity 0.15s, transform 0.15s;
+    }
+    .fare-save-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    .fare-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .fare-save-status { font-size: 13px; color: var(--success); font-weight: 600; margin-left: 12px; opacity: 0; transition: opacity 0.3s; }
+    .fare-save-status.visible { opacity: 1; }
+    .fare-history-list { margin-top: 16px; }
+    .fare-history-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--muted);
+    }
+    .fare-history-item:last-child { border-bottom: none; }
+    .fare-history-formula { font-family: var(--mono); font-weight: 700; color: var(--text); }
+
+    /* ── Firebase status banner ── */
+    .fb-status {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 9999;
+      padding: 12px 20px;
+      font-size: 13px;
+      font-weight: 600;
+      text-align: center;
+      display: block;
+    }
+    .fb-status.ok { background: #052e16; color: #4ade80; border-bottom: 1px solid #166534; }
+    .fb-status.error { background: #450a0a; color: #fca5a5; border-bottom: 1px solid #991b1b; }
+    .fb-status code { background: rgba(255,255,255,0.1); padding: 1px 5px; border-radius: 3px; font-family: monospace; }
   </style>
 </head>
 <body>
@@ -329,6 +396,64 @@
   </div>
 
   <div class="container">
+
+    <!-- FARE LOGIC EDITOR -->
+    <div class="fare-editor-card" id="fare-editor-card">
+      <div class="fare-editor-header">
+        <div>
+          <div class="fare-editor-title">⚙️ Trike Fare Logic Editor</div>
+          <div class="fare-editor-sub">Changes apply immediately to the live app — loaded from Firebase</div>
+        </div>
+        <button class="toggle-breakdown-btn" id="toggle-fare-editor">Edit Fare</button>
+      </div>
+      <div id="fare-editor-body-wrap" style="display:none;">
+        <div class="fare-editor-body">
+          <div class="fare-fields-grid">
+            <div class="fare-field">
+              <label>Base Fare (₱)</label>
+              <input type="number" id="fe-base-fare" value="15" min="1" max="999" step="1">
+              <div class="fare-field-hint">Minimum fare charged</div>
+            </div>
+            <div class="fare-field">
+              <label>Base Distance (km)</label>
+              <input type="number" id="fe-base-km" value="4" min="1" max="20" step="0.5">
+              <div class="fare-field-hint">Km covered by base fare</div>
+            </div>
+            <div class="fare-field">
+              <label>Rate per Extra km (₱)</label>
+              <input type="number" id="fe-per-km" value="1" min="0.5" max="20" step="0.5">
+              <div class="fare-field-hint">Added per km after base</div>
+            </div>
+            <div class="fare-field">
+              <label>Special Discount (%)</label>
+              <input type="number" id="fe-discount" value="20" min="0" max="50" step="1">
+              <div class="fare-field-hint">PWD / Senior / Student</div>
+            </div>
+            <div class="fare-field">
+              <label>Bus Min. Fare (₱)</label>
+              <input type="number" id="fe-bus-fare" value="15" min="1" max="999" step="1">
+              <div class="fare-field-hint">Minimum bus/jeep fare</div>
+            </div>
+          </div>
+
+          <div class="fare-preview-box" id="fare-preview-box">
+            <div class="fare-preview-label">📋 Current Formula Preview:</div>
+            <div class="fare-preview-formula" id="fare-preview-formula">₱15 for first 4 km, then ₱1/km. Special passengers get 20% off.</div>
+          </div>
+
+          <div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;">
+            <button class="fare-save-btn" id="fare-save-btn">💾 Save Fare Config</button>
+            <span class="fare-save-status" id="fare-save-status">✅ Saved successfully!</span>
+            <button class="toggle-breakdown-btn" id="fare-reset-btn" style="margin-left:auto;">Reset to Default</button>
+          </div>
+
+          <div class="fare-history-list" id="fare-history-list">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-top:20px;margin-bottom:8px;">Change History (last 5)</div>
+            <div id="fare-history-items"><div class="fare-history-item" style="color:var(--muted);font-style:italic;">No history yet</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- STATS SECTION -->
     <div class="stats-section">
@@ -460,6 +585,7 @@
 <!-- Print/PDF area -->
 <div id="print-area"></div>
 
+<div id="firebase-status" class="fb-status" style="display:none"></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -481,17 +607,45 @@ function showToast(msg, ms = 2600) {
 
 /* ── Firebase ─────────────────────────────────────────────────── */
 async function fbGetAll() {
-  // Fetch all reports (sorted client-side)
   const url = `${FIREBASE_DB_URL}/reports.json`;
-  const res  = await fetch(url);
-  if (!res.ok) throw new Error('read failed');
+  const res = await fetch(url);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status}: ${body.slice(0, 120)}`);
+  }
   const data = await res.json();
   if (!data) return [];
   return Object.entries(data).map(([k, v]) => ({ _key: k, ...v }));
 }
 async function fbDelete(key) {
   const res = await fetch(`${FIREBASE_DB_URL}/reports/${key}.json`, { method: 'DELETE' });
-  if (!res.ok) throw new Error('delete failed');
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status}: ${body.slice(0, 80)}`);
+  }
+}
+
+// Test Firebase connectivity and rules — shows actionable error
+async function testFirebaseConnection() {
+  const statusEl = document.getElementById('firebase-status');
+  if (!statusEl) return;
+  try {
+    const res = await fetch(`${FIREBASE_DB_URL}/reports.json`);
+    if (res.status === 401 || res.status === 403) {
+      statusEl.innerHTML = '🔴 <strong>Firebase rules blocking reads.</strong> Go to Firebase Console → Realtime Database → Rules and set <code>".read": true</code> under <code>reports</code>.';
+      statusEl.className = 'fb-status error';
+    } else if (!res.ok) {
+      statusEl.innerHTML = `🔴 Firebase error: HTTP ${res.status}`;
+      statusEl.className = 'fb-status error';
+    } else {
+      statusEl.innerHTML = '🟢 Firebase connected';
+      statusEl.className = 'fb-status ok';
+      setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
+    }
+  } catch (e) {
+    statusEl.innerHTML = `🔴 Network error: ${e.message}`;
+    statusEl.className = 'fb-status error';
+  }
 }
 
 /* ── Type maps ────────────────────────────────────────────────── */
@@ -1158,13 +1312,28 @@ async function loadReports() {
     updateStats();
     applyAndRender();
   } catch (err) {
-    console.error(err);
+    console.error('loadReports error:', err);
+    const msg = err && err.message ? err.message : String(err);
+    let hint = 'Failed to load reports.';
+    if (msg.includes('401') || msg.includes('403') || msg.includes('Permission denied')) {
+      hint = '⚠️ Firebase rules are blocking reads. In Firebase Console → Realtime Database → Rules, set <code>".read": true</code> under <code>reports</code>.';
+    } else if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+      hint = '⚠️ No internet connection.';
+    } else {
+      hint = `⚠️ ${msg}`;
+    }
     if (isFirstLoad)
       document.getElementById('reports-tbody').innerHTML =
-        `<tr><td colspan="8"><div class="empty-state"><div class="ei">Error</div><p>Failed to load. Check your connection.</p></div></td></tr>`;
+        `<tr><td colspan="8"><div class="empty-state"><div class="ei">Error</div><p>${hint}</p></div></td></tr>`;
   }
 }
-function startPolling() { loadReports(); pollInterval = setInterval(loadReports, 10000); }
+function startPolling() {
+  const statusEl = document.getElementById('firebase-status');
+  if (statusEl) statusEl.style.display = 'block';
+  testFirebaseConnection();
+  loadReports();
+  pollInterval = setInterval(loadReports, 10000);
+}
 function stopPolling()  { clearInterval(pollInterval); pollInterval = null; }
 
 /* ================================================================
@@ -1176,6 +1345,135 @@ function openLightbox(src) { lbImg.src = src; lightbox.classList.add('show'); }
 document.getElementById('lb-close').onclick = () => lightbox.classList.remove('show');
 lightbox.addEventListener('click', e => { if (e.target === lightbox) lightbox.classList.remove('show'); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') lightbox.classList.remove('show'); });
+
+/* ================================================================
+   FARE LOGIC EDITOR
+================================================================ */
+const DEFAULT_FARE = { trike: { baseFare: 15, baseKm: 4, perKmRate: 1, discountRate: 0.20 }, bus: { minimumFare: 15 } };
+
+async function loadFareConfig() {
+  try {
+    const res = await fetch(`${FIREBASE_DB_URL}/fareConfig.json`);
+    if (res.ok) {
+      const d = await res.json();
+      if (d && d.trike) return d;
+    }
+  } catch(e) {}
+  return DEFAULT_FARE;
+}
+
+async function saveFareConfig(config) {
+  const res = await fetch(`${FIREBASE_DB_URL}/fareConfig.json`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config)
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status}: ${body.slice(0,100)}`);
+  }
+  // Save to history
+  const histEntry = {
+    timestamp: Date.now(),
+    date: new Date().toLocaleString('en-PH', { timeZone: 'Asia/Manila' }),
+    formula: `₱${config.trike.baseFare} for ${config.trike.baseKm}km, then ₱${config.trike.perKmRate}/km. ${Math.round(config.trike.discountRate*100)}% discount. Bus ₱${config.bus.minimumFare}.`
+  };
+  const histRes = await fetch(`${FIREBASE_DB_URL}/fareHistory.json`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(histEntry) });
+  return res.json();
+}
+
+async function loadFareHistory() {
+  try {
+    const res = await fetch(`${FIREBASE_DB_URL}/fareHistory.json`);
+    if (!res.ok) return [];
+    const d = await res.json();
+    if (!d) return [];
+    return Object.values(d).sort((a, b) => b.timestamp - a.timestamp).slice(0, 5);
+  } catch(e) { return []; }
+}
+
+function updateFarePreview() {
+  const baseFare = parseFloat(document.getElementById('fe-base-fare').value) || 15;
+  const baseKm   = parseFloat(document.getElementById('fe-base-km').value) || 4;
+  const perKm    = parseFloat(document.getElementById('fe-per-km').value) || 1;
+  const disc     = parseFloat(document.getElementById('fe-discount').value) || 20;
+  const busFare  = parseFloat(document.getElementById('fe-bus-fare').value) || 15;
+  document.getElementById('fare-preview-formula').textContent =
+    `₱${baseFare} for first ${baseKm}km, then ₱${perKm}/km per additional km. Special passengers (PWD/Senior/Student) get ${disc}% off. Bus/Jeep minimum ₱${busFare}.`;
+}
+
+function renderFareHistory(history) {
+  const el = document.getElementById('fare-history-items');
+  if (!history.length) { el.innerHTML = '<div class="fare-history-item" style="color:var(--muted);font-style:italic;">No history yet</div>'; return; }
+  el.innerHTML = history.map(h => `
+    <div class="fare-history-item">
+      <span class="fare-history-formula">${h.formula}</span>
+      <span>${h.date}</span>
+    </div>
+  `).join('');
+}
+
+async function initFareEditor() {
+  const toggleBtn = document.getElementById('toggle-fare-editor');
+  const bodyWrap = document.getElementById('fare-editor-body-wrap');
+  toggleBtn.addEventListener('click', async () => {
+    const isOpen = bodyWrap.style.display !== 'none';
+    bodyWrap.style.display = isOpen ? 'none' : 'block';
+    toggleBtn.textContent = isOpen ? 'Edit Fare' : 'Close';
+    if (!isOpen) {
+      const config = await loadFareConfig();
+      document.getElementById('fe-base-fare').value = config.trike.baseFare;
+      document.getElementById('fe-base-km').value   = config.trike.baseKm;
+      document.getElementById('fe-per-km').value    = config.trike.perKmRate;
+      document.getElementById('fe-discount').value  = Math.round(config.trike.discountRate * 100);
+      document.getElementById('fe-bus-fare').value  = config.bus.minimumFare;
+      updateFarePreview();
+      const history = await loadFareHistory();
+      renderFareHistory(history);
+    }
+  });
+
+  ['fe-base-fare','fe-base-km','fe-per-km','fe-discount','fe-bus-fare'].forEach(id => {
+    document.getElementById(id).addEventListener('input', updateFarePreview);
+  });
+
+  document.getElementById('fare-save-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('fare-save-btn');
+    const status = document.getElementById('fare-save-status');
+    btn.disabled = true; btn.textContent = '⏳ Saving...';
+    try {
+      const config = {
+        trike: {
+          baseFare:     parseFloat(document.getElementById('fe-base-fare').value) || 15,
+          baseKm:       parseFloat(document.getElementById('fe-base-km').value) || 4,
+          perKmRate:    parseFloat(document.getElementById('fe-per-km').value) || 1,
+          discountRate: (parseFloat(document.getElementById('fe-discount').value) || 20) / 100,
+        },
+        bus: { minimumFare: parseFloat(document.getElementById('fe-bus-fare').value) || 15 }
+      };
+      await saveFareConfig(config);
+      status.textContent = '✅ Saved!'; status.classList.add('visible');
+      setTimeout(() => status.classList.remove('visible'), 3000);
+      showToast('Fare config saved to Firebase');
+      const history = await loadFareHistory();
+      renderFareHistory(history);
+    } catch(err) {
+      const msg = err && err.message ? err.message : String(err);
+      showToast(`❌ Save failed: ${msg.slice(0,60)}`, 5000);
+      console.error('saveFareConfig error:', err);
+    } finally {
+      btn.disabled = false; btn.textContent = '💾 Save Fare Config';
+    }
+  });
+
+  document.getElementById('fare-reset-btn').addEventListener('click', async () => {
+    document.getElementById('fe-base-fare').value = 15;
+    document.getElementById('fe-base-km').value   = 4;
+    document.getElementById('fe-per-km').value    = 1;
+    document.getElementById('fe-discount').value  = 20;
+    document.getElementById('fe-bus-fare').value  = 30;
+    updateFarePreview();
+    showToast('Reset to default values (not saved yet)');
+  });
+}
 
 /* ================================================================
    LOGIN / LOGOUT
@@ -1191,6 +1489,7 @@ function doLogin() {
     adminScreen.style.display = 'block';
     isFirstLoad = true;
     startPolling();
+    initFareEditor();
   } else {
     loginError.textContent = 'Incorrect password. Try again.';
     loginInput.value = ''; loginInput.focus();
