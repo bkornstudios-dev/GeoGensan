@@ -644,10 +644,10 @@ function startLiveLocation() {
           if (state.trike.endMarker) updateTrikeRoute().then(fd => { _lockedFareData = fd; });
           state.map.setView(latlng, 15);
         } else if (state.trike.routes.length > 1) {
-          // Auto-switch to whichever route the user is physically closer to
-          // Throttle: only check every 8 seconds
+          // Auto-switch to whichever route the user is physically closest to
+          // Throttle: only check every 5 seconds
           const now = Date.now();
-          if (now - _lastAutoSwitchTime < 8000) return;
+          if (now - _lastAutoSwitchTime < 5000) return;
           _lastAutoSwitchTime = now;
 
           const currentIdx = state.trike.activeRouteIndex;
@@ -660,10 +660,14 @@ function startLiveLocation() {
             if (d < closestDist) { closestDist = d; closestIdx = i; }
           });
 
-          if (closestIdx !== currentIdx && closestDist < 150) {
-            // User is on the alternative route — switch display but KEEP original fare
+          // Switch if user is closer to a different route (threshold: 80m for snap, 300m for off-route warning)
+          if (closestIdx !== currentIdx && closestDist < 80) {
+            // User is clearly on the alternative route — switch display but KEEP original fare
             selectAlternativeRouteNoFareChange(closestIdx, _lockedFareData);
             showToast(`🔄 Auto-switched to Route ${closestIdx + 1} (fare unchanged)`, 3000);
+          } else if (closestDist > 300) {
+            // User appears to be off all known routes
+            showToast('⚠️ You appear to be off the plotted route', 2500);
           }
         }
       }
@@ -1024,14 +1028,6 @@ async function showRoute(routeKey) {
   // ETA for bus — based on number of stops (avg 2.5 min per stop)
   state.busjeep.routeControl.on('routesfound', (e) => {
     const dist = e.routes[0].summary.totalDistance / 1000;
-    const stopCount = route.stops.length;
-    const etaMins = Math.round(stopCount * 2.5);
-    const etaEl = document.getElementById('bus-eta-display');
-    if (etaEl) etaEl.textContent = etaMins < 60 ? `~${etaMins} min` : `~${Math.floor(etaMins/60)}h ${etaMins%60}m`;
-    const distEl = document.getElementById('bus-dist-display');
-    if (distEl) distEl.textContent = `${dist.toFixed(1)} km`;
-    const stopsEl = document.getElementById('bus-stops-count-display');
-    if (stopsEl) stopsEl.textContent = `${stopCount} stops`;
   });
 
   const bounds = L.latLngBounds(waypoints);
@@ -1476,3 +1472,288 @@ function init() {
 
 document.addEventListener('DOMContentLoaded', init);
 window.addEventListener('resize', () => { if (state.map) state.map.invalidateSize(); });
+
+// ═══════════════════════════════════════════════════════════════
+// LEFT TOOLS PANEL — Fare Calculator + Report Trike
+// ═══════════════════════════════════════════════════════════════
+
+(function initLeftPanel() {
+
+  // ── Panel open/close ──────────────────────────────────────────
+  const bubbleBtn = document.getElementById('left-bubble-btn');
+  const panel     = document.getElementById('left-tools-panel');
+  const closeBtn  = document.getElementById('ltp-close');
+
+  function openPanel() {
+    panel.classList.add('open');
+    bubbleBtn.classList.add('panel-open');
+    document.getElementById('left-bubble-icon').textContent = '✕';
+  }
+  function closePanel() {
+    panel.classList.remove('open');
+    bubbleBtn.classList.remove('panel-open');
+    document.getElementById('left-bubble-icon').textContent = '⚡';
+  }
+  bubbleBtn.addEventListener('click', () => panel.classList.contains('open') ? closePanel() : openPanel());
+  closeBtn.addEventListener('click', closePanel);
+
+  // ── Tab switching ─────────────────────────────────────────────
+  document.querySelectorAll('.ltp-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.ltp-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.ltp-view').forEach(v => v.classList.remove('active'));
+      tab.classList.add('active');
+      document.querySelector(`.ltp-view[data-ltpview="${tab.dataset.ltptab}"]`).classList.add('active');
+    });
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // FARE CALCULATOR
+  // ══════════════════════════════════════════════════════════════
+  let lfcReg = 1, lfcDisc = 0;
+  const MAX_PAX = 6;
+
+  function updateLfcPax() {
+    document.getElementById('lfc-reg-count').textContent = lfcReg;
+    document.getElementById('lfc-disc-count').textContent = lfcDisc;
+  }
+
+  document.getElementById('lfc-reg-minus').addEventListener('click', () => { if (lfcReg > 1) { lfcReg--; updateLfcPax(); } });
+  document.getElementById('lfc-reg-plus').addEventListener('click',  () => { if (lfcReg + lfcDisc < MAX_PAX) { lfcReg++; updateLfcPax(); } });
+  document.getElementById('lfc-disc-minus').addEventListener('click', () => { if (lfcDisc > 0) { lfcDisc--; updateLfcPax(); } });
+  document.getElementById('lfc-disc-plus').addEventListener('click',  () => { if (lfcReg + lfcDisc < MAX_PAX) { lfcDisc++; updateLfcPax(); } });
+
+  document.getElementById('lfc-calc-btn').addEventListener('click', async () => {
+    const kmInput = parseFloat(document.getElementById('lfc-km').value);
+    if (!kmInput || kmInput <= 0) {
+      document.getElementById('lfc-km').focus();
+      document.getElementById('lfc-km').style.borderColor = 'var(--danger)';
+      setTimeout(() => document.getElementById('lfc-km').style.borderColor = '', 1500);
+      return;
+    }
+
+    try {
+      const result = await (async () => {
+        // Use Api from api.js scope if available, else compute locally
+        if (typeof window._lfcComputeFare === 'function') return window._lfcComputeFare(kmInput, lfcReg, lfcDisc);
+        // Fallback: same formula as api.js
+        const BASE = 15, BASE_KM = 4, PER_KM = 1, DISC = 0.20;
+        const baseFare = kmInput <= BASE_KM ? BASE : BASE + Math.ceil(kmInput - BASE_KM) * PER_KM;
+        const discAmt = Math.round(baseFare * DISC);
+        const discFare = baseFare - discAmt;
+        const regTotal = baseFare * lfcReg;
+        const discTotal = discFare * lfcDisc;
+        return { baseFare, discFare, discAmt, regTotal, discTotal, total: regTotal + discTotal };
+      })();
+
+      const fromVal = document.getElementById('lfc-from').value.trim();
+      const toVal   = document.getElementById('lfc-to').value.trim();
+      const routeLabel = (fromVal && toVal) ? `${fromVal} → ${toVal}` : (fromVal || toVal || 'Custom Trip');
+
+      document.getElementById('lfc-result-route').textContent = routeLabel;
+      document.getElementById('lfc-result-dist').textContent  = `${kmInput.toFixed(2)} km`;
+      document.getElementById('lfc-result-amount').textContent = `₱${result.total}`;
+
+      let breakdownHtml = `Base fare: ₱${result.baseFare}/person`;
+      if (lfcReg > 0)  breakdownHtml += `<br>Regular ×${lfcReg}: ₱${result.regTotal}`;
+      if (lfcDisc > 0) breakdownHtml += `<br>Special (20% off) ×${lfcDisc}: ₱${result.discTotal} (₱${result.discFare}/person)`;
+      document.getElementById('lfc-result-breakdown').innerHTML = breakdownHtml;
+
+      // Store pending save data
+      document.getElementById('lfc-save-btn')._pendingSave = {
+        route: routeLabel, km: kmInput, total: result.total,
+        reg: lfcReg, disc: lfcDisc, baseFare: result.baseFare, ts: Date.now()
+      };
+      document.getElementById('lfc-result').style.display = 'block';
+    } catch(e) {
+      console.error('Fare calc error', e);
+    }
+  });
+
+  // ── History ───────────────────────────────────────────────────
+  const HIST_KEY = 'geoGensan_fareHistory';
+
+  function loadHistory() {
+    try { return JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); } catch { return []; }
+  }
+  function saveHistory(arr) {
+    localStorage.setItem(HIST_KEY, JSON.stringify(arr.slice(0, 50)));
+  }
+  function renderHistory() {
+    const list = loadHistory();
+    const el   = document.getElementById('lfc-history-list');
+    if (!list.length) { el.innerHTML = '<div class="lfc-history-empty">No saved fares yet.</div>'; return; }
+    el.innerHTML = list.map((item, i) => `
+      <div class="lfc-history-item">
+        <button class="lfc-hist-del" data-idx="${i}" title="Delete">✕</button>
+        <div class="lfc-hist-top">
+          <span class="lfc-hist-route">${item.route}</span>
+          <span class="lfc-hist-amount">₱${item.total}</span>
+        </div>
+        <div class="lfc-hist-meta">${item.km.toFixed(2)} km · ${item.reg} reg${item.disc ? ` + ${item.disc} special` : ''} · ${new Date(item.ts).toLocaleDateString('en-PH', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
+      </div>
+    `).join('');
+    el.querySelectorAll('.lfc-hist-del').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const arr = loadHistory();
+        arr.splice(parseInt(btn.dataset.idx), 1);
+        saveHistory(arr);
+        renderHistory();
+      });
+    });
+  }
+
+  document.getElementById('lfc-save-btn').addEventListener('click', () => {
+    const data = document.getElementById('lfc-save-btn')._pendingSave;
+    if (!data) return;
+    const arr = loadHistory();
+    arr.unshift(data);
+    saveHistory(arr);
+    renderHistory();
+    document.getElementById('lfc-save-btn').textContent = '✅ Saved!';
+    setTimeout(() => document.getElementById('lfc-save-btn').textContent = '💾 Save to History', 1800);
+  });
+
+  document.getElementById('lfc-history-clear').addEventListener('click', () => {
+    if (!confirm('Clear all saved fare history?')) return;
+    localStorage.removeItem(HIST_KEY);
+    renderHistory();
+  });
+
+  renderHistory();
+
+  // ══════════════════════════════════════════════════════════════
+  // REPORT TRIKE (left panel version)
+  // ══════════════════════════════════════════════════════════════
+  let ltpCooldownInterval = null;
+  const LTP_COOLDOWN_KEY = 'geoGensan_reportCooldown';
+  const COOLDOWN_MS = 30 * 60 * 1000; // 30 min
+
+  function checkLtpCooldown() {
+    const last = parseInt(localStorage.getItem(LTP_COOLDOWN_KEY) || '0');
+    const elapsed = Date.now() - last;
+    if (elapsed < COOLDOWN_MS) {
+      showLtpCooldown(COOLDOWN_MS - elapsed);
+      return false;
+    }
+    return true;
+  }
+
+  function showLtpCooldown(msLeft) {
+    document.getElementById('ltp-cooldown-notice').style.display = 'flex';
+    document.getElementById('ltp-report-form').style.opacity = '0.4';
+    document.getElementById('ltp-report-form').style.pointerEvents = 'none';
+    const update = () => {
+      const m = Math.floor(msLeft / 60000);
+      const s = Math.floor((msLeft % 60000) / 1000);
+      document.getElementById('ltp-cooldown-timer').textContent = `${m}m ${s}s`;
+      msLeft -= 1000;
+      if (msLeft < 0) {
+        clearInterval(ltpCooldownInterval);
+        document.getElementById('ltp-cooldown-notice').style.display = 'none';
+        document.getElementById('ltp-report-form').style.opacity = '';
+        document.getElementById('ltp-report-form').style.pointerEvents = '';
+      }
+    };
+    update();
+    clearInterval(ltpCooldownInterval);
+    ltpCooldownInterval = setInterval(update, 1000);
+  }
+
+  // Image drop zone
+  const ltpDropZone = document.getElementById('ltp-image-drop-zone');
+  const ltpImgInput = document.getElementById('ltp-image-input');
+  ltpDropZone.addEventListener('click', () => ltpImgInput.click());
+  ltpImgInput.addEventListener('change', () => {
+    const file = ltpImgInput.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { alert('Image must be under 5MB'); return; }
+    const reader = new FileReader();
+    reader.onload = e => {
+      document.getElementById('ltp-img-preview').src = e.target.result;
+      document.getElementById('ltp-drop-zone-idle').style.display = 'none';
+      document.getElementById('ltp-drop-zone-preview').style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  });
+  document.getElementById('ltp-drop-remove-img').addEventListener('click', e => {
+    e.stopPropagation();
+    ltpImgInput.value = '';
+    document.getElementById('ltp-img-preview').src = '';
+    document.getElementById('ltp-drop-zone-idle').style.display = '';
+    document.getElementById('ltp-drop-zone-preview').style.display = 'none';
+  });
+
+  // Char count
+  document.getElementById('ltp-desc').addEventListener('input', function() {
+    document.getElementById('ltp-desc-count').textContent = this.value.length;
+  });
+
+  // Submit
+  document.getElementById('ltp-submit-btn').addEventListener('click', async () => {
+    if (!checkLtpCooldown()) return;
+    const plate = document.getElementById('ltp-plate').value.trim();
+    const type  = document.getElementById('ltp-type').value;
+    const desc  = document.getElementById('ltp-desc').value.trim();
+    if (!plate) { document.getElementById('ltp-plate').focus(); return; }
+    if (!type)  { document.getElementById('ltp-type').focus(); return; }
+    if (!desc)  { document.getElementById('ltp-desc').focus(); return; }
+
+    // Re-use the existing complaint submit logic if available
+    const payload = { plate, type, desc, ts: new Date().toISOString() };
+    const FIREBASE = 'https://gentrike-75c7c-default-rtdb.asia-southeast1.firebasedatabase.app';
+    try {
+      await fetch(`${FIREBASE}/complaints.json`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+      });
+    } catch(e) { console.warn('Firebase write failed', e); }
+
+    localStorage.setItem(LTP_COOLDOWN_KEY, Date.now().toString());
+    showLtpCooldown(COOLDOWN_MS);
+
+    // Reset form
+    document.getElementById('ltp-plate').value = '';
+    document.getElementById('ltp-type').value = '';
+    document.getElementById('ltp-desc').value = '';
+    document.getElementById('ltp-desc-count').textContent = '0';
+    ltpImgInput.value = '';
+    document.getElementById('ltp-img-preview').src = '';
+    document.getElementById('ltp-drop-zone-idle').style.display = '';
+    document.getElementById('ltp-drop-zone-preview').style.display = 'none';
+
+    if (typeof showToast === 'function') showToast('✅ Report submitted! Thank you.', 3500);
+  });
+
+  // ── Print / Save PDF ──────────────────────────────────────────
+  document.getElementById('ltp-print-btn').addEventListener('click', () => {
+    const plate = document.getElementById('ltp-plate').value.trim() || '(not filled)';
+    const type  = document.getElementById('ltp-type').value || '(not selected)';
+    const desc  = document.getElementById('ltp-desc').value.trim() || '(no description)';
+    const now   = new Date().toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' });
+
+    const printWin = window.open('', '_blank', 'width=700,height=600');
+    printWin.document.write(`<!DOCTYPE html>
+<html><head><title>Tricycle Report — GeoGensan</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; color: #111; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .sub { font-size: 13px; color: #666; margin-bottom: 24px; }
+  .field { margin-bottom: 16px; }
+  .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #888; font-weight: 700; margin-bottom: 3px; }
+  .value { font-size: 15px; color: #111; border-bottom: 1px solid #e5e5e5; padding-bottom: 8px; }
+  .footer { margin-top: 40px; font-size: 11px; color: #aaa; border-top: 1px solid #e5e5e5; padding-top: 12px; }
+  @media print { body { margin: 20px; } }
+</style></head><body>
+<h1>🚨 Tricycle Report</h1>
+<div class="sub">GeoGensan · Submitted: ${now}</div>
+<div class="field"><div class="label">Plate Number</div><div class="value">${plate}</div></div>
+<div class="field"><div class="label">Report Type</div><div class="value">${type}</div></div>
+<div class="field"><div class="label">Description</div><div class="value">${desc}</div></div>
+<div class="footer">Generated by GeoGensan — General Santos City Transport Navigator<br>Fares based on City Ordinance No. 08, Series of 2023</div>
+<script>window.onload=()=>{window.print();}<\/script>
+</body></html>`);
+    printWin.document.close();
+  });
+
+  checkLtpCooldown();
+})();
