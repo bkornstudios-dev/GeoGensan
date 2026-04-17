@@ -266,7 +266,7 @@
 
   <!-- ── LEFT BUBBLE BUTTON ── -->
   <button class="left-bubble-btn" id="left-bubble-btn" title="Tools">
-    <span class="left-bubble-icon" id="left-bubble-icon">⚡</span>
+    <img src="others.png" alt="Tools" class="bubble-logo" id="left-bubble-logo">
   </button>
 
   <!-- ── LEFT TOOLS PANEL ── -->
@@ -283,22 +283,29 @@
     <!-- FARE CALCULATOR TAB -->
     <div class="ltp-view active" data-ltpview="calc">
       <div class="ltp-section-title">Quick Fare Calculator</div>
-      <p class="ltp-section-desc">Enter distance or locations to estimate your trike fare — no map needed.</p>
+      <p class="ltp-section-desc">Enter your start and destination — distance fills automatically.</p>
 
-      <div class="lfc-input-group">
-        <label class="lfc-label">From (optional)</label>
-        <input type="text" id="lfc-from" class="lfc-input" placeholder="e.g. SM Mall" autocomplete="off">
+      <div class="lfc-input-group lfc-location-group" id="lfc-from-group">
+        <label class="lfc-label">From <span class="lfc-req">*</span></label>
+        <div class="lfc-location-wrap" id="lfc-from-wrap">
+          <input type="text" id="lfc-from" class="lfc-input" placeholder="e.g. SM City GenSan" autocomplete="off">
+        </div>
       </div>
-      <div class="lfc-input-group">
-        <label class="lfc-label">To (optional)</label>
-        <input type="text" id="lfc-to" class="lfc-input" placeholder="e.g. Robinsons" autocomplete="off">
+      <div class="lfc-input-group lfc-location-group" id="lfc-to-group">
+        <label class="lfc-label">To <span class="lfc-req">*</span></label>
+        <div class="lfc-location-wrap" id="lfc-to-wrap">
+          <input type="text" id="lfc-to" class="lfc-input" placeholder="e.g. Robinsons" autocomplete="off">
+        </div>
       </div>
+
       <div class="lfc-input-group">
         <label class="lfc-label">Distance (km) <span class="lfc-req">*</span></label>
         <div class="lfc-km-row">
-          <input type="number" id="lfc-km" class="lfc-input" placeholder="e.g. 3.5" min="0" max="100" step="0.1">
+          <input type="number" id="lfc-km" class="lfc-input" placeholder="Auto-filled from route" min="0" max="100" step="0.1" readonly>
           <span class="lfc-km-unit">km</span>
+          <span class="lfc-km-status" id="lfc-km-status"></span>
         </div>
+        <div class="lfc-route-status" id="lfc-route-status"></div>
       </div>
 
       <div class="lfc-pax-row">
@@ -332,7 +339,10 @@
           <span class="lfc-result-amount" id="lfc-result-amount">₱—</span>
         </div>
         <div class="lfc-result-breakdown" id="lfc-result-breakdown"></div>
-        <button class="lfc-save-btn" id="lfc-save-btn">💾 Save to History</button>
+        <div class="lfc-save-row">
+          <input type="text" id="lfc-save-label" class="lfc-save-label-input" placeholder="Label (e.g. Work commute)">
+          <button class="lfc-save-btn" id="lfc-save-btn">💾 Save</button>
+        </div>
       </div>
 
       <!-- History -->
