@@ -2295,7 +2295,6 @@ body.dark-mode .breakdown-row { color: var(--white); }
    LEFT BUBBLE BUTTON & TOOLS PANEL
 ══════════════════════════════════════════════════════════ */
 
-/* ── Bubble button ── */
 .left-bubble-btn {
   position: fixed;
   left: 16px;
@@ -2314,16 +2313,20 @@ body.dark-mode .breakdown-row { color: var(--white); }
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 20px rgba(37,99,235,0.4), 0 2px 8px rgba(0,0,0,0.15);
-  transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s, background 0.2s;
+  transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s, background 0.2s, opacity 0.2s;
   outline: none;
+  overflow: hidden;
+}
+.left-bubble-btn img.bubble-logo {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+  display: block;
+  border-radius: 50%;
 }
 .left-bubble-btn:hover {
   transform: translateY(-50%) scale(1.1);
   box-shadow: 0 8px 28px rgba(37,99,235,0.5);
-}
-.left-bubble-btn.panel-open {
-  background: var(--gray-700);
-  transform: translateY(-50%) rotate(90deg) scale(1.05);
 }
 body.dark-mode .left-bubble-btn { box-shadow: 0 4px 20px rgba(37,99,235,0.55); }
 
@@ -2352,10 +2355,16 @@ body.dark-mode .left-bubble-btn { box-shadow: 0 4px 20px rgba(37,99,235,0.55); }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 20px 14px;
+  padding: 54px 20px 14px; /* extra top so it clears the page header */
   border-bottom: 1.5px solid var(--gray-200);
   background: var(--white);
   flex-shrink: 0;
+}
+/* Hide bubble when panel is open */
+.left-bubble-btn.panel-open {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%) scale(0.7);
 }
 .ltp-title {
   font-size: 17px;
@@ -2668,14 +2677,13 @@ body.dark-mode .lfc-hist-route { color: var(--gray-900); }
 body.dark-mode .lfc-history-title { color: var(--gray-700); }
 body.dark-mode .ltp-print-btn { background: var(--gray-200); border-color: var(--gray-300); color: var(--gray-700); }
 
-/* ── Responsive: on mobile, panel is full-width bottom sheet ── */
 @media (max-width: 640px) {
   .left-tools-panel {
     left: 0;
     top: auto;
     bottom: -100%;
     width: 100%;
-    height: 80vh;
+    height: 85vh;
     border-right: none;
     border-top: 1.5px solid var(--gray-200);
     border-radius: 20px 20px 0 0;
@@ -2683,6 +2691,7 @@ body.dark-mode .ltp-print-btn { background: var(--gray-200); border-color: var(-
     transition: bottom 0.32s cubic-bezier(0.4,0,0.2,1);
   }
   .left-tools-panel.open { bottom: 0; left: 0; }
+  .ltp-header { padding-top: 24px; } /* no page header overlap on mobile sheet */
   .left-bubble-btn {
     left: 16px;
     bottom: 90px;
@@ -2690,5 +2699,130 @@ body.dark-mode .ltp-print-btn { background: var(--gray-200); border-color: var(-
     transform: none;
   }
   .left-bubble-btn:hover { transform: scale(1.1); }
-  .left-bubble-btn.panel-open { transform: rotate(90deg) scale(1.05); }
+  .left-bubble-btn.panel-open {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.7);
+  }
 }
+
+/* ── LFC Autocomplete dropdown ── */
+.lfc-location-wrap { position: relative; }
+.lfc-autocomplete-drop {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0; right: 0;
+  background: var(--white);
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  z-index: 9999;
+  overflow: hidden;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.lfc-drop-header {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gray-400);
+  padding: 8px 12px 4px;
+}
+.lfc-drop-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  font-size: 13px;
+  color: var(--gray-900);
+  cursor: pointer;
+  border-top: 1px solid var(--gray-100);
+  transition: background 0.12s;
+}
+.lfc-drop-item:first-of-type { border-top: none; }
+.lfc-drop-item:hover { background: rgba(37,99,235,0.07); }
+
+/* ── Route status text ── */
+.lfc-route-status {
+  font-size: 11px;
+  margin-top: 4px;
+  min-height: 16px;
+  font-weight: 600;
+}
+.lfc-km-status { font-size: 14px; }
+.lfc-km-row input[readonly] { background: var(--gray-50); color: var(--gray-500); }
+
+/* ── Save row (label + button) ── */
+.lfc-save-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.lfc-save-label-input {
+  flex: 1;
+  padding: 7px 10px;
+  border: 1.5px solid rgba(255,255,255,0.35);
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.15);
+  color: white;
+  font-size: 12px;
+  outline: none;
+}
+.lfc-save-label-input::placeholder { color: rgba(255,255,255,0.6); }
+.lfc-save-label-input:focus { border-color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.22); }
+.lfc-save-btn {
+  white-space: nowrap;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid rgba(255,255,255,0.4);
+  background: rgba(255,255,255,0.15);
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.lfc-save-btn:hover { background: rgba(255,255,255,0.28); }
+
+/* ── History item: editable name ── */
+.lfc-hist-name-input {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gray-900);
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px dashed transparent;
+  outline: none;
+  padding: 1px 2px;
+  cursor: text;
+  min-width: 0;
+  transition: border-color 0.15s;
+  font-family: var(--font-base);
+}
+.lfc-hist-name-input:hover { border-bottom-color: var(--gray-300); }
+.lfc-hist-name-input:focus { border-bottom-color: var(--primary); background: rgba(37,99,235,0.04); border-radius: 2px; }
+.lfc-hist-del {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--danger);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 3px 7px;
+  margin-top: 5px;
+  transition: var(--transition);
+}
+.lfc-hist-del:hover { background: #fee2e2; border-color: #fca5a5; }
+
+/* dark mode for new elements */
+body.dark-mode .lfc-autocomplete-drop { background: var(--gray-200); border-color: var(--gray-300); }
+body.dark-mode .lfc-drop-item { color: var(--gray-900); border-color: var(--gray-300); }
+body.dark-mode .lfc-drop-item:hover { background: rgba(96,165,250,0.1); }
+body.dark-mode .lfc-km-row input[readonly] { background: var(--gray-300); }
+body.dark-mode .lfc-hist-name-input { color: var(--gray-900); }
