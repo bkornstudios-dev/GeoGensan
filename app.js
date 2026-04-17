@@ -1041,20 +1041,14 @@ function showRouteDetail(route) {
   const nameEl = document.getElementById('route-detail-name');
   const stopsEl = document.getElementById('stops-list');
   nameEl.textContent = route.name;
-  // Bus fare per stop: ₱15 base, +₱1 for each stop beyond the 4th (approx based on distance)
-  const baseFare = 15;
-  stopsEl.innerHTML = route.labels.map((label, idx) => {
-    // Estimate fare by stop position (cumulative distance approximation)
-    const stopFare = baseFare; // minimum fare applies to all stops - same flat rate
-    return `
+  stopsEl.innerHTML = route.labels.map((label, idx) => `
     <div class="stop-item clickable-stop" data-idx="${idx}" style="cursor:pointer;">
       <div class="stop-number">${idx + 1}</div>
       <div class="stop-info">
         <span class="stop-label">${label}</span>
-        <span class="stop-fare-badge">₱${stopFare}</span>
       </div>
     </div>
-  `}).join('');
+  `).join('');
   stopsEl.querySelectorAll('.clickable-stop').forEach(item => {
     item.addEventListener('click', () => {
       const idx = parseInt(item.dataset.idx);
@@ -1479,21 +1473,13 @@ window.addEventListener('resize', () => { if (state.map) state.map.invalidateSiz
 
 (function initLeftPanel() {
 
-  // ── Panel open/close ──────────────────────────────────────────
+  // ── Panel open/close: bubble hides when panel is open ─────────
   const bubbleBtn = document.getElementById('left-bubble-btn');
   const panel     = document.getElementById('left-tools-panel');
   const closeBtn  = document.getElementById('ltp-close');
 
-  function openPanel() {
-    panel.classList.add('open');
-    bubbleBtn.classList.add('panel-open');
-    document.getElementById('left-bubble-icon').textContent = '✕';
-  }
-  function closePanel() {
-    panel.classList.remove('open');
-    bubbleBtn.classList.remove('panel-open');
-    document.getElementById('left-bubble-icon').textContent = '⚡';
-  }
+  function openPanel()  { panel.classList.add('open');    bubbleBtn.classList.add('panel-open'); }
+  function closePanel() { panel.classList.remove('open'); bubbleBtn.classList.remove('panel-open'); }
   bubbleBtn.addEventListener('click', () => panel.classList.contains('open') ? closePanel() : openPanel());
   closeBtn.addEventListener('click', closePanel);
 
@@ -1508,93 +1494,281 @@ window.addEventListener('resize', () => { if (state.map) state.map.invalidateSiz
   });
 
   // ══════════════════════════════════════════════════════════════
-  // FARE CALCULATOR
+  // FARE CALCULATOR — autocomplete From/To + OSRM distance fill
   // ══════════════════════════════════════════════════════════════
   let lfcReg = 1, lfcDisc = 0;
   const MAX_PAX = 6;
+  // Resolved latlng for from/to
+  let lfcFromLatLng = null, lfcToLatLng = null;
 
   function updateLfcPax() {
     document.getElementById('lfc-reg-count').textContent = lfcReg;
     document.getElementById('lfc-disc-count').textContent = lfcDisc;
   }
-
-  document.getElementById('lfc-reg-minus').addEventListener('click', () => { if (lfcReg > 1) { lfcReg--; updateLfcPax(); } });
-  document.getElementById('lfc-reg-plus').addEventListener('click',  () => { if (lfcReg + lfcDisc < MAX_PAX) { lfcReg++; updateLfcPax(); } });
+  document.getElementById('lfc-reg-minus').addEventListener('click',  () => { if (lfcReg > 1) { lfcReg--; updateLfcPax(); } });
+  document.getElementById('lfc-reg-plus').addEventListener('click',   () => { if (lfcReg + lfcDisc < MAX_PAX) { lfcReg++; updateLfcPax(); } });
   document.getElementById('lfc-disc-minus').addEventListener('click', () => { if (lfcDisc > 0) { lfcDisc--; updateLfcPax(); } });
   document.getElementById('lfc-disc-plus').addEventListener('click',  () => { if (lfcReg + lfcDisc < MAX_PAX) { lfcDisc++; updateLfcPax(); } });
 
+  // ── Autocomplete for From / To ────────────────────────────────
+  function lfcSearchPlaces(query) {
+    const q = query.toLowerCase().trim();
+    if (!q) return [];
+    return GENSAN_PLACES.map(p => {
+      const n = p.name.toLowerCase();
+      let score = 0;
+      if (n.startsWith(q)) score = 100;
+      else if (n.includes(q)) score = 80;
+      else if (p.tags && p.tags.some(t => t.includes(q))) score = 55;
+      return { ...p, score };
+    }).filter(p => p.score > 0).sort((a, b) => b.score - a.score).slice(0, 5);
+  }
+
+  function createLfcDropdown(inputEl, onSelect) {
+    // Remove any existing dropdown
+    inputEl.parentElement.querySelectorAll('.lfc-autocomplete-drop').forEach(d => d.remove());
+    const q = inputEl.value.trim();
+    const history = (() => { try { return JSON.parse(localStorage.getItem('geoGensan_searchHistory') || '[]'); } catch { return []; } })();
+    let results = q ? lfcSearchPlaces(q) : history.slice(0, 4).map(h => ({ ...h, isHistory: true }));
+    if (!results.length) return;
+
+    const drop = document.createElement('div');
+    drop.className = 'lfc-autocomplete-drop';
+    if (!q && results.length) {
+      const hdr = document.createElement('div');
+      hdr.className = 'lfc-drop-header';
+      hdr.textContent = '🕐 Recent';
+      drop.appendChild(hdr);
+    }
+    results.forEach(place => {
+      const item = document.createElement('div');
+      item.className = 'lfc-drop-item';
+      item.innerHTML = `<span>${place.isHistory ? '🕐' : '📍'}</span><span>${place.name}</span>`;
+      const pick = (e) => {
+        e.preventDefault();
+        inputEl.value = place.name;
+        drop.remove();
+        onSelect({ lat: place.lat, lng: place.lng, name: place.name });
+      };
+      item.addEventListener('mousedown', pick);
+      item.addEventListener('touchend', pick);
+      drop.appendChild(item);
+    });
+    inputEl.parentElement.style.position = 'relative';
+    inputEl.parentElement.appendChild(drop);
+  }
+
+  function removeLfcDropdowns() {
+    document.querySelectorAll('.lfc-autocomplete-drop').forEach(d => d.remove());
+  }
+
+  // Also allow Nominatim fallback for typed entries
+  async function lfcGeocode(query) {
+    const local = lfcSearchPlaces(query);
+    if (local.length && local[0].score >= 70) return { lat: local[0].lat, lng: local[0].lng, name: local[0].name };
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', General Santos City, Philippines')}&limit=3&addressdetails=1`;
+      const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+      const data = await res.json();
+      if (data && data.length) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), name: data[0].display_name.split(',')[0] };
+    } catch {}
+    return null;
+  }
+
+  // ── Fetch driving distance via OSRM ──────────────────────────
+  async function fetchOsrmDistance(from, to) {
+    const url = `https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=false`;
+    const res  = await fetch(url);
+    const data = await res.json();
+    if (data.routes && data.routes.length) return data.routes[0].distance / 1000; // metres → km
+    return null;
+  }
+
+  // ── Set route status text ─────────────────────────────────────
+  function setRouteStatus(msg, isError) {
+    const el = document.getElementById('lfc-route-status');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = isError ? 'var(--danger)' : 'var(--success, #16a34a)';
+  }
+
+  // Auto-fetch distance whenever both locations are resolved
+  async function tryAutoFillDistance() {
+    if (!lfcFromLatLng || !lfcToLatLng) return;
+    const kmEl     = document.getElementById('lfc-km');
+    const statusEl = document.getElementById('lfc-km-status');
+    if (statusEl) statusEl.textContent = '⏳';
+    setRouteStatus('Calculating distance…');
+    try {
+      const km = await fetchOsrmDistance(lfcFromLatLng, lfcToLatLng);
+      if (km !== null) {
+        kmEl.value = km.toFixed(2);
+        kmEl.style.borderColor = 'var(--success, #16a34a)';
+        if (statusEl) statusEl.textContent = '✅';
+        setRouteStatus(`Route found: ${km.toFixed(2)} km`);
+      } else {
+        if (statusEl) statusEl.textContent = '⚠️';
+        setRouteStatus('Could not find route — enter km manually', true);
+        kmEl.removeAttribute('readonly');
+      }
+    } catch {
+      if (statusEl) statusEl.textContent = '⚠️';
+      setRouteStatus('Network error — enter km manually', true);
+      kmEl.removeAttribute('readonly');
+    }
+  }
+
+  // Wire up From input
+  const lfcFromEl = document.getElementById('lfc-from');
+  const lfcToEl   = document.getElementById('lfc-to');
+
+  function wireLocationInput(inputEl, onResolved) {
+    inputEl.addEventListener('focus',  () => createLfcDropdown(inputEl, onResolved));
+    inputEl.addEventListener('input',  () => createLfcDropdown(inputEl, onResolved));
+    inputEl.addEventListener('blur',   () => setTimeout(removeLfcDropdowns, 180));
+    inputEl.addEventListener('keydown', async (e) => {
+      if (e.key !== 'Enter') return;
+      const q = inputEl.value.trim();
+      if (!q) return;
+      removeLfcDropdowns();
+      const result = await lfcGeocode(q);
+      if (result) {
+        inputEl.value = result.name;
+        onResolved(result);
+      } else {
+        inputEl.style.borderColor = 'var(--danger)';
+        setTimeout(() => inputEl.style.borderColor = '', 1500);
+      }
+    });
+  }
+
+  wireLocationInput(lfcFromEl, (place) => {
+    lfcFromLatLng = { lat: place.lat, lng: place.lng };
+    lfcFromEl.value = place.name;
+    tryAutoFillDistance();
+  });
+  wireLocationInput(lfcToEl, (place) => {
+    lfcToLatLng = { lat: place.lat, lng: place.lng };
+    lfcToEl.value = place.name;
+    tryAutoFillDistance();
+  });
+
+  // Also allow manual km override any time
+  document.getElementById('lfc-km').addEventListener('focus', function() {
+    this.removeAttribute('readonly');
+  });
+
+  // ── Calculate fare ────────────────────────────────────────────
   document.getElementById('lfc-calc-btn').addEventListener('click', async () => {
-    const kmInput = parseFloat(document.getElementById('lfc-km').value);
-    if (!kmInput || kmInput <= 0) {
-      document.getElementById('lfc-km').focus();
-      document.getElementById('lfc-km').style.borderColor = 'var(--danger)';
-      setTimeout(() => document.getElementById('lfc-km').style.borderColor = '', 1500);
+    const fromVal = lfcFromEl.value.trim();
+    const toVal   = lfcToEl.value.trim();
+    const kmEl    = document.getElementById('lfc-km');
+
+    // Validate From
+    if (!fromVal) {
+      lfcFromEl.style.borderColor = 'var(--danger)';
+      setTimeout(() => lfcFromEl.style.borderColor = '', 1500);
+      lfcFromEl.focus();
+      return;
+    }
+    // Validate To
+    if (!toVal) {
+      lfcToEl.style.borderColor = 'var(--danger)';
+      setTimeout(() => lfcToEl.style.borderColor = '', 1500);
+      lfcToEl.focus();
       return;
     }
 
-    try {
-      const result = await (async () => {
-        // Use Api from api.js scope if available, else compute locally
-        if (typeof window._lfcComputeFare === 'function') return window._lfcComputeFare(kmInput, lfcReg, lfcDisc);
-        // Fallback: same formula as api.js
-        const BASE = 15, BASE_KM = 4, PER_KM = 1, DISC = 0.20;
-        const baseFare = kmInput <= BASE_KM ? BASE : BASE + Math.ceil(kmInput - BASE_KM) * PER_KM;
-        const discAmt = Math.round(baseFare * DISC);
-        const discFare = baseFare - discAmt;
-        const regTotal = baseFare * lfcReg;
-        const discTotal = discFare * lfcDisc;
-        return { baseFare, discFare, discAmt, regTotal, discTotal, total: regTotal + discTotal };
-      })();
-
-      const fromVal = document.getElementById('lfc-from').value.trim();
-      const toVal   = document.getElementById('lfc-to').value.trim();
-      const routeLabel = (fromVal && toVal) ? `${fromVal} → ${toVal}` : (fromVal || toVal || 'Custom Trip');
-
-      document.getElementById('lfc-result-route').textContent = routeLabel;
-      document.getElementById('lfc-result-dist').textContent  = `${kmInput.toFixed(2)} km`;
-      document.getElementById('lfc-result-amount').textContent = `₱${result.total}`;
-
-      let breakdownHtml = `Base fare: ₱${result.baseFare}/person`;
-      if (lfcReg > 0)  breakdownHtml += `<br>Regular ×${lfcReg}: ₱${result.regTotal}`;
-      if (lfcDisc > 0) breakdownHtml += `<br>Special (20% off) ×${lfcDisc}: ₱${result.discTotal} (₱${result.discFare}/person)`;
-      document.getElementById('lfc-result-breakdown').innerHTML = breakdownHtml;
-
-      // Store pending save data
-      document.getElementById('lfc-save-btn')._pendingSave = {
-        route: routeLabel, km: kmInput, total: result.total,
-        reg: lfcReg, disc: lfcDisc, baseFare: result.baseFare, ts: Date.now()
-      };
-      document.getElementById('lfc-result').style.display = 'block';
-    } catch(e) {
-      console.error('Fare calc error', e);
+    // If km not filled yet (locations typed but not picked from dropdown), try geocoding now
+    if (!kmEl.value || parseFloat(kmEl.value) <= 0) {
+      if (!lfcFromLatLng) {
+        setRouteStatus('Locating "From" address…');
+        const r = await lfcGeocode(fromVal);
+        if (r) { lfcFromLatLng = r; lfcFromEl.value = r.name; }
+      }
+      if (!lfcToLatLng) {
+        setRouteStatus('Locating "To" address…');
+        const r = await lfcGeocode(toVal);
+        if (r) { lfcToLatLng = r; lfcToEl.value = r.name; }
+      }
+      if (lfcFromLatLng && lfcToLatLng) {
+        await tryAutoFillDistance();
+      }
     }
+
+    const kmInput = parseFloat(kmEl.value);
+    if (!kmInput || kmInput <= 0) {
+      kmEl.style.borderColor = 'var(--danger)';
+      setTimeout(() => kmEl.style.borderColor = '', 1500);
+      setRouteStatus('Could not determine distance — enter km manually', true);
+      kmEl.removeAttribute('readonly');
+      return;
+    }
+
+    // Compute fare (same formula as api.js)
+    const BASE = 15, BASE_KM = 4, PER_KM = 1, DISC = 0.20;
+    const baseFare  = kmInput <= BASE_KM ? BASE : BASE + Math.ceil(kmInput - BASE_KM) * PER_KM;
+    const discAmt   = Math.round(baseFare * DISC);
+    const discFare  = baseFare - discAmt;
+    const regTotal  = baseFare * lfcReg;
+    const discTotal = discFare * lfcDisc;
+    const total     = regTotal + discTotal;
+
+    const routeLabel = `${fromVal} → ${toVal}`;
+    document.getElementById('lfc-result-route').textContent  = routeLabel;
+    document.getElementById('lfc-result-dist').textContent   = `${kmInput.toFixed(2)} km`;
+    document.getElementById('lfc-result-amount').textContent = `₱${total}`;
+
+    let bHtml = `Base: ₱${baseFare}/person`;
+    if (lfcReg > 0)  bHtml += `<br>Regular ×${lfcReg}: ₱${regTotal}`;
+    if (lfcDisc > 0) bHtml += `<br>Special (20% off) ×${lfcDisc}: ₱${discTotal} (₱${discFare}/ea)`;
+    document.getElementById('lfc-result-breakdown').innerHTML = bHtml;
+
+    // Pre-fill the save label with route name
+    const saveLabelEl = document.getElementById('lfc-save-label');
+    if (saveLabelEl && !saveLabelEl.value) saveLabelEl.value = routeLabel;
+
+    // Store pending save
+    document.getElementById('lfc-save-btn')._pendingSave = {
+      route: routeLabel, km: kmInput, total, reg: lfcReg, disc: lfcDisc, baseFare, ts: Date.now()
+    };
+    document.getElementById('lfc-result').style.display = 'block';
   });
 
-  // ── History ───────────────────────────────────────────────────
+  // ── History: editable names + individual delete ───────────────
   const HIST_KEY = 'geoGensan_fareHistory';
+  function loadHistory() { try { return JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); } catch { return []; } }
+  function saveHistory(arr) { localStorage.setItem(HIST_KEY, JSON.stringify(arr.slice(0, 50))); }
 
-  function loadHistory() {
-    try { return JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); } catch { return []; }
-  }
-  function saveHistory(arr) {
-    localStorage.setItem(HIST_KEY, JSON.stringify(arr.slice(0, 50)));
-  }
   function renderHistory() {
     const list = loadHistory();
     const el   = document.getElementById('lfc-history-list');
     if (!list.length) { el.innerHTML = '<div class="lfc-history-empty">No saved fares yet.</div>'; return; }
     el.innerHTML = list.map((item, i) => `
-      <div class="lfc-history-item">
-        <button class="lfc-hist-del" data-idx="${i}" title="Delete">✕</button>
+      <div class="lfc-history-item" data-idx="${i}">
         <div class="lfc-hist-top">
-          <span class="lfc-hist-route">${item.route}</span>
+          <input class="lfc-hist-name-input" data-idx="${i}" value="${item.label || item.route}" title="Tap to rename" aria-label="Edit name">
           <span class="lfc-hist-amount">₱${item.total}</span>
         </div>
         <div class="lfc-hist-meta">${item.km.toFixed(2)} km · ${item.reg} reg${item.disc ? ` + ${item.disc} special` : ''} · ${new Date(item.ts).toLocaleDateString('en-PH', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
+        <button class="lfc-hist-del" data-idx="${i}" title="Delete this entry">🗑 Delete</button>
       </div>
     `).join('');
+
+    // Editable name: save on blur or Enter
+    el.querySelectorAll('.lfc-hist-name-input').forEach(inp => {
+      inp.addEventListener('blur', () => {
+        const arr = loadHistory();
+        const idx = parseInt(inp.dataset.idx);
+        if (arr[idx]) { arr[idx].label = inp.value.trim() || arr[idx].route; saveHistory(arr); }
+      });
+      inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') inp.blur(); });
+    });
+
+    // Individual delete
     el.querySelectorAll('.lfc-hist-del').forEach(btn => {
       btn.addEventListener('click', () => {
+        if (!confirm('Delete this saved fare?')) return;
         const arr = loadHistory();
         arr.splice(parseInt(btn.dataset.idx), 1);
         saveHistory(arr);
@@ -1606,12 +1780,15 @@ window.addEventListener('resize', () => { if (state.map) state.map.invalidateSiz
   document.getElementById('lfc-save-btn').addEventListener('click', () => {
     const data = document.getElementById('lfc-save-btn')._pendingSave;
     if (!data) return;
+    const labelEl = document.getElementById('lfc-save-label');
+    const label   = (labelEl && labelEl.value.trim()) ? labelEl.value.trim() : data.route;
     const arr = loadHistory();
-    arr.unshift(data);
+    arr.unshift({ ...data, label });
     saveHistory(arr);
     renderHistory();
-    document.getElementById('lfc-save-btn').textContent = '✅ Saved!';
-    setTimeout(() => document.getElementById('lfc-save-btn').textContent = '💾 Save to History', 1800);
+    const btn = document.getElementById('lfc-save-btn');
+    btn.textContent = '✅ Saved!';
+    setTimeout(() => btn.textContent = '💾 Save', 1800);
   });
 
   document.getElementById('lfc-history-clear').addEventListener('click', () => {
@@ -1623,41 +1800,31 @@ window.addEventListener('resize', () => { if (state.map) state.map.invalidateSiz
   renderHistory();
 
   // ══════════════════════════════════════════════════════════════
-  // REPORT TRIKE (left panel version)
+  // REPORT TRIKE — uses shared Firebase helpers (fbPush, uploadToImgBB)
   // ══════════════════════════════════════════════════════════════
+  // Re-use the global COOLDOWN constants from the main report system
+  const LTP_REPORT_KEY = LAST_REPORT_KEY; // same key → same 2hr cooldown across both UIs
   let ltpCooldownInterval = null;
-  const LTP_COOLDOWN_KEY = 'geoGensan_reportCooldown';
-  const COOLDOWN_MS = 30 * 60 * 1000; // 30 min
 
-  function checkLtpCooldown() {
-    const last = parseInt(localStorage.getItem(LTP_COOLDOWN_KEY) || '0');
-    const elapsed = Date.now() - last;
-    if (elapsed < COOLDOWN_MS) {
-      showLtpCooldown(COOLDOWN_MS - elapsed);
-      return false;
-    }
-    return true;
-  }
+  function ltpCanSubmit() { return canSubmitReport(); }
+  function ltpGetRemaining() { return getRemainingCooldown(); }
 
   function showLtpCooldown(msLeft) {
     document.getElementById('ltp-cooldown-notice').style.display = 'flex';
-    document.getElementById('ltp-report-form').style.opacity = '0.4';
-    document.getElementById('ltp-report-form').style.pointerEvents = 'none';
-    const update = () => {
-      const m = Math.floor(msLeft / 60000);
-      const s = Math.floor((msLeft % 60000) / 1000);
-      document.getElementById('ltp-cooldown-timer').textContent = `${m}m ${s}s`;
-      msLeft -= 1000;
-      if (msLeft < 0) {
+    document.getElementById('ltp-report-form').style.cssText = 'opacity:0.45;pointer-events:none;';
+    clearInterval(ltpCooldownInterval);
+    const tick = () => {
+      if (msLeft <= 0) {
         clearInterval(ltpCooldownInterval);
         document.getElementById('ltp-cooldown-notice').style.display = 'none';
-        document.getElementById('ltp-report-form').style.opacity = '';
-        document.getElementById('ltp-report-form').style.pointerEvents = '';
+        document.getElementById('ltp-report-form').style.cssText = '';
+        return;
       }
+      document.getElementById('ltp-cooldown-timer').textContent = formatCooldown(msLeft);
+      msLeft -= 1000;
     };
-    update();
-    clearInterval(ltpCooldownInterval);
-    ltpCooldownInterval = setInterval(update, 1000);
+    tick();
+    ltpCooldownInterval = setInterval(tick, 1000);
   }
 
   // Image drop zone
@@ -1667,7 +1834,7 @@ window.addEventListener('resize', () => { if (state.map) state.map.invalidateSiz
   ltpImgInput.addEventListener('change', () => {
     const file = ltpImgInput.files[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { alert('Image must be under 5MB'); return; }
+    if (file.size > 5 * 1024 * 1024) { alert('Image must be under 5MB'); ltpImgInput.value = ''; return; }
     const reader = new FileReader();
     reader.onload = e => {
       document.getElementById('ltp-img-preview').src = e.target.result;
@@ -1689,39 +1856,65 @@ window.addEventListener('resize', () => { if (state.map) state.map.invalidateSiz
     document.getElementById('ltp-desc-count').textContent = this.value.length;
   });
 
-  // Submit
+  // Submit — fully wired to Firebase via fbPush + uploadToImgBB
   document.getElementById('ltp-submit-btn').addEventListener('click', async () => {
-    if (!checkLtpCooldown()) return;
-    const plate = document.getElementById('ltp-plate').value.trim();
-    const type  = document.getElementById('ltp-type').value;
-    const desc  = document.getElementById('ltp-desc').value.trim();
-    if (!plate) { document.getElementById('ltp-plate').focus(); return; }
-    if (!type)  { document.getElementById('ltp-type').focus(); return; }
-    if (!desc)  { document.getElementById('ltp-desc').focus(); return; }
+    if (!ltpCanSubmit()) { showLtpCooldown(ltpGetRemaining()); return; }
 
-    // Re-use the existing complaint submit logic if available
-    const payload = { plate, type, desc, ts: new Date().toISOString() };
-    const FIREBASE = 'https://gentrike-75c7c-default-rtdb.asia-southeast1.firebasedatabase.app';
+    const plate   = document.getElementById('ltp-plate').value.trim();
+    const type    = document.getElementById('ltp-type').value;
+    const desc    = document.getElementById('ltp-desc').value.trim();
+    const imgFile = ltpImgInput.files[0] || null;
+
+    if (!plate) { document.getElementById('ltp-plate').style.borderColor='var(--danger)'; setTimeout(()=>document.getElementById('ltp-plate').style.borderColor='',1500); document.getElementById('ltp-plate').focus(); return; }
+    if (!type)  { document.getElementById('ltp-type').style.borderColor='var(--danger)'; setTimeout(()=>document.getElementById('ltp-type').style.borderColor='',1500); return; }
+    if (!desc)  { document.getElementById('ltp-desc').style.borderColor='var(--danger)'; setTimeout(()=>document.getElementById('ltp-desc').style.borderColor='',1500); document.getElementById('ltp-desc').focus(); return; }
+
+    const submitBtn = document.getElementById('ltp-submit-btn');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting…';
+
     try {
-      await fetch(`${FIREBASE}/complaints.json`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-      });
-    } catch(e) { console.warn('Firebase write failed', e); }
+      let imageUrl = null;
+      if (imgFile) {
+        const reader = new FileReader();
+        const base64 = await new Promise((res, rej) => { reader.onload = e => res(e.target.result); reader.onerror = rej; reader.readAsDataURL(imgFile); });
+        try { imageUrl = await uploadToImgBB(base64); } catch { imageUrl = null; }
+      }
 
-    localStorage.setItem(LTP_COOLDOWN_KEY, Date.now().toString());
-    showLtpCooldown(COOLDOWN_MS);
+      const payload = {
+        plate,
+        type,
+        description: desc,
+        imageUrl,
+        timestamp: Date.now(),
+        source: 'left-panel',
+        dateString: new Date().toISOString()
+      };
 
-    // Reset form
-    document.getElementById('ltp-plate').value = '';
-    document.getElementById('ltp-type').value = '';
-    document.getElementById('ltp-desc').value = '';
-    document.getElementById('ltp-desc-count').textContent = '0';
-    ltpImgInput.value = '';
-    document.getElementById('ltp-img-preview').src = '';
-    document.getElementById('ltp-drop-zone-idle').style.display = '';
-    document.getElementById('ltp-drop-zone-preview').style.display = 'none';
+      await fbPush('reports', payload);
+      try { await enforceReportCap(); } catch {}
 
-    if (typeof showToast === 'function') showToast('✅ Report submitted! Thank you.', 3500);
+      localStorage.setItem(LAST_REPORT_KEY, Date.now().toString());
+      showLtpCooldown(COOLDOWN_MS);
+
+      // Reset form
+      document.getElementById('ltp-plate').value = '';
+      document.getElementById('ltp-type').value  = '';
+      document.getElementById('ltp-desc').value  = '';
+      document.getElementById('ltp-desc-count').textContent = '0';
+      ltpImgInput.value = '';
+      document.getElementById('ltp-img-preview').src = '';
+      document.getElementById('ltp-drop-zone-idle').style.display    = '';
+      document.getElementById('ltp-drop-zone-preview').style.display = 'none';
+
+      showToast('✅ Report submitted! Thank you.', 3500);
+    } catch (err) {
+      console.error('Report submit failed:', err);
+      showToast('❌ Submission failed — check connection', 3500);
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit Report';
+    }
   });
 
   // ── Print / Save PDF ──────────────────────────────────────────
@@ -1729,31 +1922,36 @@ window.addEventListener('resize', () => { if (state.map) state.map.invalidateSiz
     const plate = document.getElementById('ltp-plate').value.trim() || '(not filled)';
     const type  = document.getElementById('ltp-type').value || '(not selected)';
     const desc  = document.getElementById('ltp-desc').value.trim() || '(no description)';
-    const now   = new Date().toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' });
+    const imgSrc = document.getElementById('ltp-img-preview').src;
+    const now   = new Date().toLocaleString('en-PH', { dateStyle: 'long', timeStyle: 'short' });
 
-    const printWin = window.open('', '_blank', 'width=700,height=600');
+    const printWin = window.open('', '_blank', 'width=720,height=640');
     printWin.document.write(`<!DOCTYPE html>
 <html><head><title>Tricycle Report — GeoGensan</title>
 <style>
-  body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; color: #111; }
-  h1 { font-size: 22px; margin-bottom: 4px; }
-  .sub { font-size: 13px; color: #666; margin-bottom: 24px; }
+  body { font-family: Arial, sans-serif; max-width: 620px; margin: 40px auto; color: #111; }
+  h1 { font-size: 22px; margin-bottom: 2px; }
+  .sub { font-size: 12px; color: #666; margin-bottom: 24px; }
   .field { margin-bottom: 16px; }
-  .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #888; font-weight: 700; margin-bottom: 3px; }
-  .value { font-size: 15px; color: #111; border-bottom: 1px solid #e5e5e5; padding-bottom: 8px; }
-  .footer { margin-top: 40px; font-size: 11px; color: #aaa; border-top: 1px solid #e5e5e5; padding-top: 12px; }
+  .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: #999; font-weight: 700; margin-bottom: 3px; }
+  .val { font-size: 15px; color: #111; border-bottom: 1px solid #e5e5e5; padding-bottom: 8px; }
+  .plate { font-size: 24px; font-weight: 900; letter-spacing: 2px; font-family: monospace; }
+  img.photo { max-width: 100%; border-radius: 6px; margin: 8px 0; border: 1px solid #ddd; }
+  .footer { margin-top: 40px; font-size: 10px; color: #bbb; border-top: 1px solid #eee; padding-top: 12px; }
   @media print { body { margin: 20px; } }
 </style></head><body>
-<h1>🚨 Tricycle Report</h1>
-<div class="sub">GeoGensan · Submitted: ${now}</div>
-<div class="field"><div class="label">Plate Number</div><div class="value">${plate}</div></div>
-<div class="field"><div class="label">Report Type</div><div class="value">${type}</div></div>
-<div class="field"><div class="label">Description</div><div class="value">${desc}</div></div>
-<div class="footer">Generated by GeoGensan — General Santos City Transport Navigator<br>Fares based on City Ordinance No. 08, Series of 2023</div>
-<script>window.onload=()=>{window.print();}<\/script>
+<h1>🚨 Tricycle Complaint Report</h1>
+<div class="sub">GeoGensan · General Santos City · ${now}</div>
+<div class="field"><div class="lbl">Plate Number</div><div class="val plate">${plate}</div></div>
+${imgSrc && imgSrc.length > 10 ? `<div class="field"><div class="lbl">Plate Photo</div><img class="photo" src="${imgSrc}"></div>` : ''}
+<div class="field"><div class="lbl">Report Type</div><div class="val">${type}</div></div>
+<div class="field"><div class="lbl">Description</div><div class="val">${desc}</div></div>
+<div class="footer">Generated by GeoGensan — General Santos City Transport Navigator · City Ordinance No. 08, Series of 2023</div>
+<script>window.onload = () => { window.print(); }<\/script>
 </body></html>`);
     printWin.document.close();
   });
 
-  checkLtpCooldown();
+  // Init: check if still in cooldown on load
+  if (!ltpCanSubmit()) showLtpCooldown(ltpGetRemaining());
 })();
