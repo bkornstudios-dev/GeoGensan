@@ -502,6 +502,24 @@ async function uploadToImgBB(base64DataUrl) {
   throw new Error('ImgBB upload failed');
 }
 
+// ─── SECURITY: Input sanitisation ────────────────────────────────────────────
+function sanitizeInput(str) {
+  if (typeof str !== 'string') return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+    .replace(/\//g, '&#x2F;')
+    .slice(0, 500);
+}
+function sanitizePlate(str) {
+  if (typeof str !== 'string') return '';
+  return str.replace(/[^A-Za-z0-9\-\s]/g, '').slice(0, 20).trim().toUpperCase();
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 async function fbPush(path, value) {
   // Security: validate path is safe
   if (!/^[a-zA-Z0-9_\-\/]+$/.test(path)) throw new Error('Invalid path');
