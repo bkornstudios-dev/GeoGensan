@@ -222,6 +222,16 @@
     @media (max-width: 640px) {
       .ltp-drag-handle { display: flex; }
     }
+
+    /* Action card images (Live, Reset) */
+    .action-card-img {
+      width: 36px;
+      height: 36px;
+      object-fit: contain;
+      border-radius: 8px;
+      margin-bottom: 4px;
+      display: block;
+    }
 </style>
 </head>
 <body>
@@ -473,11 +483,11 @@
         <!-- Quick actions -->
         <div class="quick-actions">
           <button class="action-card" id="use-location">
-            <span class="action-icon"></span>
+            <img src="Live.png" alt="Live Location" class="action-card-img" onerror="this.style.display='none'">
             <span class="action-text">Live Location</span>
           </button>
           <button class="action-card" id="reset-trike">
-            <span class="action-icon"></span>
+            <img src="Reset.png" alt="Reset" class="action-card-img" onerror="this.style.display='none'">
             <span class="action-text">Reset</span>
           </button>
         </div>
